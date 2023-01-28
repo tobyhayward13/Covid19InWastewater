@@ -1,0 +1,166 @@
+---
+title: "Dunedin Population Variance"
+format: html
+editor: source
+---
+
+```{r setup, include = F}
+library(tidyverse)
+library(mgcv)
+library(scales)
+library(lubridate)
+
+```
+
+# Intro
+
+Using the term dates as an explanatory variable, we want to estimate the effect that the dates have on the observed concentration of genome copies.\
+
+```{r data in}
+
+# Dunedin Flow
+data.flow = read_csv('dunedin_flow_data.csv')
+data.flow.tidy = data.flow %>% 
+  pivot_longer(cols = -c(1, 18), names_to = 'start_date', values_to = 'daily_flow_m3') %>% 
+  mutate(start_date = mdy(start_date) + Day - 1) %>% 
+  select(-1) %>% 
+  arrange(start_date) %>% 
+  rename('date' = start_date, 'SampleLocation' = catchment)
+
+# Dunedin cov conc
+data.waste = read_csv('../data/ww_data_all.csv') %>% 
+  filter(SampleLocation %in% (data.flow.tidy$SampleLocation %>% unique()))
+
+# Flow with waste
+data.waste.flow = data.waste %>% 
+  select(SampleLocation, date = Collected, sars_gcl, copies_per_day_per_person) %>% 
+  # About 40 rows removed. Might be a good idea to consider later if we're just interested in Dates on Flow.
+  inner_join(data.flow.tidy, by = c('SampleLocation', 'date'))
+
+# Define Term dates
+# https://www.otago.ac.nz/news/events/keydates/archive/index.html
+# Deciding that O-Week is the official start since it's likely most students would be in Dunedin at that point.
+# Had to use Wayback Machine to get SS dates for 2021-22
+# https://web.archive.org/web/20220319234748/https://www.otago.ac.nz/summerschool/study/keydates/index.html
+data.dates = tibble(
+  date = dmy(c('10/01/22', '24/02/22', '21/02/22', '15/04/22', '26/04/22', '22/06/22', '04/07/22', '27/08/22', '05/09/22', '12/11/22', '09/01/23')),
+  event = c('Summer School Start', 'Summer School End', 'Sem 1 Start', 'Sem 1 Mid Sem-Break Start', 'Sem 1 Resume', 'Sem 1 End', 'Sem 2 Start', 'Sem 2 Mid Sem-Break Start', 'Sem 2 Resume', 'Sem 2 End', 'Summer School Start')
+)
+# Vis
+data.dates %>% knitr::kable(caption = 'OTAGO UNI KEY DATES')
+
+
+# Determine which dates we expect to have students.
+# Define a function which can determine this easily. 
+study_in_session <- function(d){
+  if (length(d) > 1) return (sapply(d, study_in_session))
+  # Takes a date and returns True if we expect students to be in session at that time. 
+  # Just going to assume for now that the population of Summer School students is negligible. 
+  intervals = matrix(nrow = 2, byrow = T,
+                     c('21-02-22', '22-06-22', 
+                       '04-07-22', '12-11-22'))
+  any(apply(intervals, 1, function(i) dmy(i[1]) <= d & dmy(i[2]) >= d))
+}
+
+study_in_session(ymd('2022-07-03'));  study_in_session(ymd('2022-07-04'))
+
+data.waste.flow.date = data.waste.flow %>% 
+  mutate(students_in_session = study_in_session(date))
+
+```
+
+Now we have all the necessary data all ready to go, fit a first model to determine the concentration of COVID bodies using these dates.
+
+![](waste_catchments_dunedin.png)
+
+```{r modelling whole gc}
+# Split data by location
+data.model = split(data.waste.flow.date, data.waste.flow.date$SampleLocation)
+
+# Start with Tahuna since it seems more likely that it will show significance (it's the catchment for basically the whole student population.)
+
+data.model$OT_DunedinTahuna %>% 
+  ggplot(aes(x = date, y = sars_gcl)) +
+  geom_point(aes(col = students_in_session)) +
+  theme_bw() +
+  labs(title = 'Observed Concentration per L in OT_DunedinTahuna',
+       x = 'Date', y = 'COVID-19 Genome Copies per Litre WW') +
+  scale_x_date(date_breaks = '1 month') +
+  theme(axis.text.x = element_text(angle = 30, vjust = 0.6),
+        legend.title = element_blank(),
+        legend.position = 'top') +
+  scale_color_manual(values = hue_pal()(2), labels = rev(c('School Term', 'Out of Term')))
+
+# For plotting Gam smoother with dates.
+source('../produce_modelling_summaries.R')
+
+fit.tahuna = gam(data = data.model$OT_DunedinTahuna %>% mutate(date.n = as.numeric(date)),
+                 # A knot for every month. 
+                 sars_gcl ~ s(date.n, k = 11) + students_in_session,
+                 family = 'quasipoisson')
+plot.gam_mine(fit.tahuna)[[2]]
+
+summary(fit.tahuna)
+```
+
+This is saying that it is likely there is no significant effect of students on the observed number of genome copies. This I believe makes sense since the number of genome copies is copies per litre, and hence it's effectively normalised by the amount of water usage which is likely correlated with more students. However, interpretting the coefficient as significant, students being in the area correspond with an increase in observed genome copies per litre of about `r (((summary(fit.tahuna)$p.coeff %>% exp())[[2]] - 1) * 100) %>% round(1)`%.\
+It is also interesting to note that the largest spikes in cases seem to be around the beginning of new terms. This is unsurprising if we're considering the amount of large social events happening around this time.
+\
+\
+The next consideration is determine significance in copies-per-litre-*per-person-population*.
+
+```{r modelling 2 per person}
+fit.tahuna2 = gam(data = data.model$OT_DunedinTahuna %>% mutate(date.n = as.numeric(date)),
+                 # A knot for every month. 
+                 copies_per_day_per_person ~ s(date.n, k = 11) + students_in_session,
+                 family = 'quasipoisson')
+plot.gam_mine(fit.tahuna2)[[2]]
+
+summary(fit.tahuna2)
+
+```
+
+What should've been obvious is that the *copies-per-litre-per-person* is simply a scale factor of the `sars_gcl` value. Hence the significance and effect is the same.\
+\
+If we look at *Flow* now.
+
+```{r modelling 3 flow, warning = F}
+data.model$OT_DunedinTahuna %>% 
+  ggplot(aes(x = date, y = daily_flow_m3)) +
+  geom_point(aes(col = students_in_session)) +
+  theme_bw() +
+  labs(title = 'Observed Flow (m3) in OT_DunedinTahuna',
+       x = 'Date', y = 'Daily Flow (m3)') +
+  scale_x_date(date_breaks = '1 month') +
+  theme(axis.text.x = element_text(angle = 30, vjust = 0.6),
+        legend.title = element_blank(),
+        legend.position = 'top') +
+  scale_color_manual(values = hue_pal()(2), labels = rev(c('School Term', 'Out of Term')))
+
+# Should ignore these outlying observations
+
+fit.tahuna.flow = gam(data = data.model$OT_DunedinTahuna %>% mutate(date = as.numeric(date)),
+                      # 5 knots to account for seasonal variation.
+                      daily_flow_m3 ~ s(date, k = 5) + students_in_session,
+                      family = 'quasipoisson')
+plot.gam_mine(fit.tahuna.flow)[[2]]
+summary(fit.tahuna.flow)
+
+fit.tahuna.flow2 = gam(data = data.model$OT_DunedinTahuna %>% filter(daily_flow_m3 < 12e4) %>% mutate(date = as.numeric(date)),
+                      # 5 knots to account for seasonal variation.
+                      daily_flow_m3 ~ s(date, k = 5) + students_in_session,
+                      family = 'quasipoisson')
+plot.gam_mine(fit.tahuna.flow2)[[2]]
+summary(fit.tahuna.flow2)
+
+```
+
+So after removing the outlying observations, there appears to be little to no effect of students being in the school term and the amount of flow entering the waste water catchment. \
+\
+
+## Summary
+
+From what I can gather, it seems like there is still too little data to support a model for students leaving over the school term. Since we don't have the flow data for the past 2-3 months (which would be useful), nor much data between November and December of 2021, there is too little data to arrive at any conclusions of Student effects on Flow or Concentration of Genome Copies per L. 
+
+
+

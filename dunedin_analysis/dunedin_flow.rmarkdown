@@ -1,0 +1,186 @@
+---
+title: "Dunedin Flows and Wastewater Concentration"
+author: "Toby Hayward, thay535, ID458894757"
+format: html
+editor: source
+---
+
+```{r setup, include = F}
+library(tidyverse)
+library(lubridate)
+library(mgcv)
+library(scales)
+
+```
+
+
+# Summary
+
+The same Flow/Wastewater/Rain analysis of Dunedin's catchment sites to estimate the effect of population variance in Dunedin on the concentration of COVID-19 genome copies in Wastewater.
+
+## Data in.
+
+Using the data, I just operated in the spreadsheets quickly to get something that I can read and manipulate easily in `R`.
+
+
+```{r data, message = F}
+# Wastewater Data
+waste.data = read_csv('../data/ww_data_all.csv')
+waste.data.dunedin = waste.data %>% 
+  filter(SampleLocation %in% c('OT_DunedinTahuna', 'OT_GreenIsland', 'OT_Mosgiel'))
+
+# Flow Data
+flow.dunedin = read_csv('dunedin_flow_data.csv')
+# Manipulate into something useful.
+flow.dunedin.tidy = flow.dunedin %>% 
+  pivot_longer(cols = -c(1, 18), names_to = 'start_date', values_to = 'daily_flow_m3') %>% 
+  mutate(start_date = mdy(start_date) + Day - 1) %>% 
+  select(-1) %>% 
+  arrange(start_date) %>% 
+  rename('date' = start_date, 'SampleLocation' = catchment)
+
+# Rain data
+rain.data = read_csv('dunedin_rain_data.csv', skip = 31)
+rain.data.locations = read_csv('dunedin_rain_data.csv', skip = 1, n_max = 24) %>% 
+  rename('Longitude' = `Longitude (dec.deg)`, 'Latitude' = `Latitude (dec.deg)`, 'Agent' = `Agent Number`)
+
+```
+
+
+For the rain data, we need to figure out which rain catchments are relevant. To do this, we'll use effectively the same crude analysis as how we mapped the catchments for the other regions, except I don't have the same tools as *Mackay*. I'll first produce both the plots of the rain catchments and include a picture of the rain boundaries and eyeball the relevant sites.
+
+![](waste_catchments_dunedin.png)
+
+
+```{r dunedin rain map}
+nz_region = map_data('nz') %>% 
+  select(Longitude = long, Latitude = lat, group)
+
+# Longitude and Latitude to Km
+# https://www.sco.wisc.edu/2022/01/21/how-big-is-a-degree/#:~:text=Therefore%20we%20can%20easily%20compute,further%20subdivisions%20of%20a%20degree.
+longlat_ratio_km = c(78.6, 111.1)
+
+(dunedin_map <- rain.data.locations %>% 
+  ggplot(aes(x = Longitude, y = Latitude)) +
+  geom_text(aes(y = Latitude + 0.01, label = Agent), size = 3, check_overlap = TRUE) +
+  theme_bw() +
+  geom_point(col = 'blue', alpha = 0.5) +
+  geom_polygon(data = nz_region, aes(group = group), alpha = 0.2, col = 'black'))
+
+
+# Too big to notice. Restrict to appropriate areas. 
+restriction = c(-45.963329, 170.804988,
+                -45.730863, 170.206128) %>% matrix(ncol = 2)
+
+dunedin_map +
+  coord_cartesian(xlim = rev(restriction[2,]), ylim = restriction[1,])
+
+
+```
+
+
+Without computing *5km* distances (the threshold used last time), it is fairly obvious that the rain catchments that would be relevant to the locations are simply:
+
+
+```{r mapped catchments}
+tibble(
+  Catchment = flow.dunedin.tidy$SampleLocation %>% unique(),
+  `Rain Catchment Agent` = c(15752, 22692, 5361)
+) %>% knitr::kable()
+
+```
+
+
+We could average over those which are relevant for potentially more accurate representations, but for now lets assume these locations give the best measurements.
+
+
+```{r rain data filter and mutate}
+rain.data.tidy = rain.data %>% 
+  filter(Station %in% c(15752, 22692, 5361)) %>% 
+  mutate(SampleLocation = case_when(Station == 15752 ~ 'OT_DunedinTahuna',
+                                    Station == 22692 ~ 'OT_GreenIsland',
+                                    TRUE ~ 'OT_Mosgiel')) %>% 
+  mutate(`Date(NZST)` = ymd(paste0(str_sub(`Date(NZST)`, 1, 4), str_sub(`Date(NZST)`, 5, 6), str_sub(`Date(NZST)`, 7, 8))))
+
+(rain.data.tidy2 = rain.data.tidy %>% 
+  select(SampleLocation, Station, date = `Date(NZST)`, avg_rain = `Amount(mm)`) %>% 
+  group_by(SampleLocation) %>% 
+  mutate(
+    avg_rain.lag1 = lag(avg_rain),
+    avg_rain.lag2 = lag(avg_rain, 2),
+    avg_rain.lag3 = lag(avg_rain, 3),
+    avg_rain.lag4 = lag(avg_rain, 4),
+    avg_rain.lag5 = lag(avg_rain, 5),
+    avg_rain.lag6 = lag(avg_rain, 6),
+    avg_rain.lag7 = lag(avg_rain, 7),
+    ))
+
+```
+
+
+## Modelling
+
+Now for this stage, we'll investigate the effect of Rain on the observed concentration of COVID-19 Genome Copies, then investigate the effect of flow, and then try see if we can estimate an effect of population variance by citing a source on population variance in Dunedin.\
+\
+First, lets prepare the data for modelling and store it in a `model.data` list of data.frames.
+
+
+```{r model data preperation}
+model_data = waste.data.dunedin %>% 
+  select(SampleLocation, Date = Collected, sars_per_person = copies_per_day_per_person) %>% 
+  left_join(rain.data.tidy2 %>% 
+              rename('Date' = date),
+            by = c('SampleLocation', 'Date')) %>% 
+  left_join(flow.dunedin.tidy %>% 
+              rename('Date' = date, 'daily_flow_rate_m3' = daily_flow_m3),
+            by = c('SampleLocation', 'Date')) %>% 
+  group_by(SampleLocation) %>% 
+  group_split()
+
+names(model_data) = unique(waste.data.dunedin$SampleLocation)
+
+
+model_data[[1]]
+
+source('../produce_modelling_summaries.R')
+```
+
+
+### Rain
+
+
+```{r modelling rain, warning = F, cache = T, message = F}
+#| layout: [[100], [50, 50], [50, 50], [100], [50, 50], [50, 50], [100], [50, 50], [50, 50]]
+print_rainsummary.gam(produce_rainsummary.gam(model_data$OT_DunedinTahuna))
+print_rainsummary.gam(produce_rainsummary.gam(model_data$OT_GreenIsland))
+print_rainsummary.gam(produce_rainsummary.gam(model_data$OT_Mosgiel))
+
+```
+
+
+### Flow
+
+
+```{r modelling flow, warning = F, cache = T, message = F}
+#| layout: [[100], [50, 50], [50, 50], [100], [50, 50], [50, 50], [100], [50, 50], [50, 50]]
+print_flowsummary.gam(produce_flowsummary.gam(model_data$OT_DunedinTahuna))
+print_flowsummary.gam(produce_flowsummary.gam(model_data$OT_GreenIsland))
+print_flowsummary.gam(produce_flowsummary.gam(model_data$OT_Mosgiel))
+
+```
+
+
+### Rain or Flow?
+
+
+```{r modelling rainandflow, warning = F, cache = T, message = F}
+#| layout: [[100], [50, 50], [100], [50, 50], [100], [50, 50]]
+print_flowrainsummary.gam(produce_flowrainsummary.gam(model_data$OT_DunedinTahuna))
+print_flowrainsummary.gam(produce_flowrainsummary.gam(model_data$OT_GreenIsland))
+print_flowrainsummary.gam(produce_flowrainsummary.gam(model_data$OT_Mosgiel))
+
+```
+
+
+**Tahuna** looks like the only location that seems to be showing any significance in a correlation between Rain/Flow on the concentration of genome copies. Perhaps including some information about population variance would provide some more insight?
+

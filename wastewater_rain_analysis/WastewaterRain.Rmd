@@ -1,0 +1,443 @@
+---
+title: "Wastewater - Rain Effect"
+author: "Toby Hayward"
+date: "2022-11-13"
+output:
+  html_document:
+    df_print: paged
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lubridate)
+library(mgcv)
+library(scales)
+library(splines)
+library(clifro)
+
+
+```
+
+
+```{r update data, include = FALSE, cache = TRUE}
+
+# Rain
+update_rain_files = function(){
+  # Got to be careful, so we don't query too many rows each time.
+  data.rain.sites = read_csv('../weather_data/rain_station_data_final.csv')
+  data.rain.sites = data.rain.sites %>% 
+    filter(!(is.na(`Waste Catchment`) & is.na(`Waste Catchment 2`) & is.na(`Waste Catchment 3`)))
+  
+  me = cf_user("tobyhayward13", "8G81FL6R")
+  rain_query.type = cf_datatype(3, 1, 1)
+  
+  data.weather.local = read_csv('../weather_data/weather_data.csv')
+  
+  
+  # Can only query 20 sites at once? Do 14 three times.
+  
+  data.weather.queried1 = tryCatch(cf_query(user = me, datatype = rain_query.type,
+                          station = cf_station(data.rain.sites$SiteNum[1:14]),
+                          start_date = max(data.weather.local$Date)+1,
+                          output_tz = 'NZST'), # max(data.weather.local$Date)+1
+                          error = function(e) NA)
+  
+  data.weather.queried2 = tryCatch(cf_query(user = me, datatype = rain_query.type,
+                          station = cf_station(data.rain.sites$SiteNum[15:28]),
+                          start_date = max(data.weather.local$Date)+1,
+                          output_tz = 'NZST'), # min(data.waste$Collected)
+                          error = function(e) NA)
+  
+  data.weather.queried3 = tryCatch(cf_query(user = me, datatype = rain_query.type,
+                          station = cf_station(data.rain.sites$SiteNum[29:41]),
+                          start_date = max(data.weather.local$Date)+1,
+                          output_tz = 'NZST'),
+                          error = function(e) NA)
+  
+  
+  data.weather = rbind(data.weather.queried1 %>% as.data.frame(), 
+                       data.weather.queried2 %>% as.data.frame(), 
+                       data.weather.queried3 %>% as.data.frame())
+  
+  # To not use too many rows when querying, I will save a copy of the rain data locally and for the final dataset, row bind with the local copy.
+  
+  
+  
+  if (any(!is.na(data.weather[,1]))) {
+    data.weather = data.weather.local %>% 
+      rbind(data.weather[!is.na(data.weather[,1]),] %>% 
+              as.data.frame() %>% 
+              mutate(Date.NZST. = str_sub(Date.NZST., 1, 8) %>% 
+                       ymd()) %>% rename('Date' = Date.NZST.))
+  } else {
+    data.weather = data.weather.local
+  }
+  
+  # Write out current data to local file
+  data.weather %>% 
+    write_csv('../weather_data/weather_data.csv')
+}
+
+update_rain_files()
+
+```
+
+
+```{r data, message = F}
+# Data in
+
+# Waste Data
+data.waste = read_csv('../data/ww_data_all.csv')
+
+
+# Case Data
+data.cases = read_csv('../data/cases_site.csv')
+
+
+# Site Data
+# https://stackoverflow.com/questions/1253499/simple-calculations-for-working-with-lat-lon-and-km-distance#:~:text=The%20approximate%20conversions%20are%3A,111.320*cos(latitude)%20km
+minutes_to_km = 110.574
+consider_dist = 80
+
+location_coords = tibble(
+  SampleLocation = c('Auckland', 'Wellington', 'Christchurch'),
+  Latitude = -c(36.8508, 41.2842, 43.5299),
+  Longitude = c(174.7645, 174.7775, 172.6333)
+)
+data.sites = read_csv('../data/sites.csv') %>% 
+  mutate(dist_akld = sqrt((Latitude - location_coords[[1,2]])^2 + (Longitude - location_coords[[1,3]])^2) * minutes_to_km,
+         dist_wgtn = sqrt((Latitude - location_coords[[2,2]])^2 + (Longitude - location_coords[[2,3]])^2) * minutes_to_km,
+         dist_chch = sqrt((Latitude - location_coords[[3,2]])^2 + (Longitude - location_coords[[3,3]])^2) * minutes_to_km,
+         consider = dist_akld < consider_dist | dist_wgtn < consider_dist | dist_chch < consider_dist) 
+
+
+# Rain Data
+data.weather = read_csv('../weather_data/weather_data.csv')
+data.rain.sites = read_csv('../weather_data/rain_station_data_final.csv')
+
+```
+
+# Summary
+
+This file contains a clean set of all the necessary analysis I have conducted to do with the **Rain** effect on the concentration of COVID-19 Genome Copies in Wastewater. With this analysis, I aim to estimate (quantify) and show the effect of Rain on the concentration; proving necessity to account for such effects when normalising the number of covid bodies per case. \
+\
+
+## Data Tidying
+
+Below are the results of mapping the catchments. Credit to *Mackat Price* for providing these polygons and maps.
+
+![](../maps/Auckland_Map.png)
+
+![](../maps/Welly_Map.png)
+
+![](../maps/Canterbury_Map.png)
+
+Catchments mapped below:
+
+```{r rain data, class.source='fold-hide'}
+
+data.weather.whole = data.weather %>% 
+  left_join(data.rain.sites %>% 
+               rename('Station' = Site),  by = 'Station') %>% 
+  pivot_longer(cols = 13:15, names_to = 'Del', values_to = 'catchment') %>% 
+  select(-Del) %>% 
+  filter(!is.na(catchment)) %>% 
+  group_by(catchment) %>% 
+  group_split()
+  
+(names(data.weather.whole) = data.weather.whole %>% map(~.$catchment %>% unique() %>% str_replace(' ', ''))) %>% unlist()
+
+weather_model_prep = function(data){
+  data %>% group_by(Date) %>% 
+    summarise(avg_rain = mean(Amount.mm.)) %>% 
+    mutate(avg_rain.lag1 = lag(avg_rain, 1),
+           avg_rain.lag2 = lag(avg_rain, 2),
+           avg_rain.lag3 = lag(avg_rain, 3),
+           avg_rain.lag4 = lag(avg_rain, 4),
+           avg_rain.lag5 = lag(avg_rain, 5),
+           avg_rain.lag6 = lag(avg_rain, 6),
+           avg_rain.lag7 = lag(avg_rain, 7))
+}
+
+# Locations mapped.
+data.weather.whole.model = data.weather.whole %>% map(weather_model_prep)
+
+```
+
+```{r model data join, class.source='fold-hide', message = F}
+data.waste.whole = data.waste %>% 
+  filter(SampleLocation %in% names(data.weather.whole)) %>% 
+  arrange(SampleLocation) %>% 
+  rename('Date' = Collected) %>% 
+  group_by(SampleLocation) %>% 
+  group_split()
+
+# Check names match
+names(data.waste.whole) = data.waste.whole %>% map(~.$SampleLocation %>% unique()) %>% unlist()
+
+# Get population estimates
+
+# Old population estimates (ESR)
+pop_names = map_chr(data.waste.whole, ~.$SampleLocation[1] %>% str_sub(4, -1))
+data.population_old = data.sites %>% mutate(catchment = SampleLocation %>% str_sub(4,-1)) %>% filter(catchment %in% pop_names) %>%
+  select(catchment, Population) %>%
+  arrange(catchment)
+
+# New Estimates (Mackay)
+data.population = read_csv('../data/SitePopulationData.csv')
+# These Sites have macron a's and o's that read_csv hasn't recognised. We'll replace these manually. 
+data.population[data.population$Site %>% str_detect('\\?'),]$Site = c('Opotiki', 'Taupo', 'Whakatane', 'Whangarei')
+
+data.population = data.population %>% 
+  rename('catchment' = Site, 'Population' = `Population Size`) %>% 
+  mutate(catchment = catchment %>% str_replace_all(' ', '')) %>% 
+  # The Eastern and South Western Interceptors are locations of interest but have 'Mangere' and 'Interceptor' attached. Remove this too
+  mutate(catchment = ifelse(catchment %>% str_detect('stern') & Region == 'Auckland', str_extract(catchment, '.*stern') %>% str_sub(8,-1), catchment))
+
+data.population = data.population %>% 
+  arrange(catchment)
+
+
+# datapops joined because Mackay doesnt have all locations of interest. Prefer Mackay's, but will use ESR's if necessary
+data.population_joined = data.population %>% 
+  rbind(data.population_old %>% 
+          cbind(data.frame(Region = rep(NA, nrow(data.population_old)), Island = rep(NA, nrow(data.population_old))))) %>% 
+  select(-(2:3)) %>% 
+  # ID's have different capitalization
+  mutate(catchment_lower = tolower(catchment)) %>% 
+  distinct(catchment_lower, .keep_all = TRUE) %>% 
+  arrange(catchment) %>% 
+  filter(catchment_lower %in% tolower(pop_names)) %>% 
+  select(-3)
+
+
+# Southwestern is causing issues. Just fix the damn name
+data.population_joined[data.population_joined$catchment == 'Southwestern',]$catchment = 'SouthWestern'
+
+# Create the final modelling dataset
+model.data = data.waste.whole %>% 
+  map2(data.weather.whole.model, inner_join, by = c('Date')) %>% 
+  map2(data.population_joined$Population, cbind) %>% 
+  map(rename, 'population' = `.y[[i]]`) %>% 
+  map(mutate, sars_per_person = sars_gcl / population)
+names(model.data) = pop_names
+
+model.data$Christchurch
+
+# Western (AU) not (WGTN) was used for final table (phew)
+
+
+
+```
+
+*Thames might not have enough data to support an analysis.*
+
+```{r dataset sizes}
+model.data %>% 
+  map_dbl(nrow) %>% 
+  sort()
+
+model.data$Thames
+```
+
+
+
+## Model Fits and Visualisations
+
+For this final investigation of the effect of rain, I'll *refactor* my code so that we can simply repeat it on all catchments. 
+
+```{r create refactoring summary for models, class.source='fold-hide'}
+# Ignore Thames
+model.data.nothames = model.data[-which(map(model.data, nrow) %>% unlist() < 40)]
+
+source('../produce_modelling_summaries.R')
+
+# Generate Summaries
+models.gam = map(model.data.nothames, produce_rainsummary.gam)
+
+
+# For instance
+
+print_rainsummary.gam(models.gam$MoaPoint)
+
+```
+
+
+We can perform the same analysis using a *Lagged GLM Model* which will restrict the effect of the lagged days to a polynomial. This will make interpretation of the effect of lag days simpler.
+
+```{r source glm}
+source('../pdl.R')
+
+```
+
+
+Refitting each of the locations above.
+
+```{r refit models, class.source='fold-hide'}
+# require(pdl.R)
+# require(splines)
+# Use data from Chunk 17
+
+produce_summary.pdl = function(data){
+  # This is a function which takes a dataset from the ones produced above, fits a model, produces summary statistics and a map.
+  # FOR PDL it is important that there is sufficient data. Must have more than 20 valid rows.
+  
+  # Fit the model
+  # model = pdlglm(sars_per_person ~ ns(as.numeric(Date), 12) + pdl(avg_rain, 7, 5), family = 'quasipoisson', data = data)
+  rain_lags = data[,7:14] %>% as.matrix()
+  model = pdlglm(sars_per_person ~ ns(as.numeric(Date), 12) + pdl(rain_lags, 7, 5), family = 'quasipoisson', data = data)
+  
+  
+  # Statistics
+  
+  # Variance
+  var = sum(summary(model)$cov.unscaled[14:20,14:20] * summary(model)$dispersion)
+  # Estimate (beta)
+  beta = model$lagcoef[14:20] %>% sum()
+  # T-Statistic
+  t = beta / sqrt(var)
+  # P-Value (2-sided)
+  model.p = 2 * min(pnorm(beta / sqrt(var)), 1 - pnorm(beta / sqrt(var)))
+  # Estimate (response)
+  model.est = 1 - beta %>% exp()
+  # Confidence Interval
+  model.confint = 1 - (beta + c(-1, 1) * 2 * sqrt(var)) %>% exp()
+  
+  
+  
+  # Graphics
+  
+  # Get ratio for first vis conversion ()
+  
+  # Rain Time-Series Plot
+  rain_to_sarspp = with(data, max(sars_per_person) / max(avg_rain))
+  location = data$SampleLocation %>% unique()
+  
+  p1 = data %>% 
+    mutate(avg_rain_trans = avg_rain * rain_to_sarspp) %>% 
+    ggplot(aes(x = Date)) +
+    geom_line(aes(y = sars_per_person)) +
+    geom_segment(aes(xend = Date, yend = avg_rain_trans, y = 0), col = 'blue', alpha = 0.5) +
+    scale_y_continuous(sec.axis = sec_axis(~ . / rain_to_sarspp, name = paste('Average Rain over', location, '(mm)'))) +
+    labs(y='Sars-Cov2 Genome Copies per Litre-Person-Population', x = 'Date',
+         title = 'SARS-COV2 Copies with Average Rainfall by Date',
+         subtitle = paste(location, '(# genomes per person-population)')) +
+    theme_minimal()
+  
+  
+  # Hex plot
+  
+  p2 = data %>% 
+    ggplot(aes(x = avg_rain, y = sars_per_person)) +
+    geom_hex() +
+    geom_smooth() +
+    theme_minimal() +
+    labs(title = 'SARS-COV2 Copies per Litre-Person-Population against Average Rainfall',
+       x = 'Average Rain', y = 'Sars-Cov2 Genome Copies per Litre-Person-Population',
+       subtitle = location, fill = 'Count')
+  
+  
+  # Dilution plot
+  
+  p3 = tibble(
+    location = rep(location, 2),
+    lower = rep(model.confint[1], 2),
+    upper = rep(model.confint[2], 2),
+    est_type = c('est', 'est_c'),
+    est = c(model.est, 1-model.est)) %>% 
+    ggplot(aes(x = location, y = est, fill = est_type)) +
+    geom_col(position = 'stack') +
+    geom_errorbar(aes(ymin = 1-lower, ymax = 1-upper), alpha = 0.2) +
+    theme_bw() +
+    labs(title = 'Observed Concentration of SARS-COV2 Genome copies',
+         subtitle = 'Per (mm) of Rainwater', x = location,
+         y = 'Proportion of Actual', fill = 'Concentration') +
+    scale_fill_manual(values = hue_pal()(2), labels = c('Conc. lost', 'Observed Conc.')) +
+    theme(axis.text.x = element_blank())
+  
+  
+  # Days Distribution Plot.
+  
+  # Cannot interpret the orthogonal polynomial coefficients. SO I will regress a cubic through the points to get my 
+  # distribution.
+  
+  
+  x = 0:6
+  y = 1 - model$lagcoef[14:20] %>% exp()
+  coef_model = lm(y ~ poly(x, 4))
+  
+  p4 = tibble(x = seq(0, 6, 0.01),
+              y = predict(coef_model, newdata = list(x = seq(0, 6, 0.01)))) %>% 
+    ggplot(aes(x = x, y = y)) + 
+    geom_line(col = 'darkred') +
+    geom_point(data = tibble(x, y)) +
+    theme_bw() +
+    labs(title = 'Distribution of Effect on Concentration',
+         x = 'Days Prior', y = 'Decrease in Concentration') +
+    scale_x_continuous(breaks = 0:6) +
+    geom_hline(yintercept = 0, alpha = 0.5)
+  
+  
+  # Map
+  
+  ### Figure OUT MAP
+  
+  
+  # Output
+  
+  list(
+    model = model,
+    site = location,
+    var = var,
+    beta_effect = model.est,
+    t = t,
+    p = model.p,
+    confint_95 = model.confint,
+    timeseries_plot = p1,
+    rain_sars_hexplot = p2,
+    concentration_plot = p3,
+    lag_distribution_plot = p4
+  )
+}
+
+print_summary.pdl = function(model){
+  print(tibble(
+    `Concentration Loss %` = round(model$beta_effect * 100, 3),
+    `97.5%` = round(model$confint_95[1]*100, 3),
+    `2.5%` = round(model$confint_95[2]*100, 3),
+    `P-Value` = model$p
+  ) %>% knitr::kable(caption = model$site))
+  
+  print(model$timeseries_plot)
+  print(model$rain_sars_hexplot)
+  print(model$concentration_plot)
+  print(model$lag_distribution_plot)
+}
+
+
+
+
+loi = map_dbl(model.data, function(m) nrow(m)) > 40 # Must be greater than the degrees of freedom.
+
+models.pdl = map(model.data[loi], produce_summary.pdl)
+
+# For instance
+
+print_summary.pdl(models.pdl$MoaPoint)
+```
+
+
+Notice the similar results for both modelling techniques.\
+
+```{r all summaries, cache = T, out.width='50%', fig.show='hold'}
+map(models.gam, print_rainsummary.gam)
+
+```
+
+
+
+
+

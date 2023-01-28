@@ -1,0 +1,77 @@
+SiteNum,Site,Latitude,Longitude,General location,Waste Catchment,Waste Catchment 2,Waste Catchment 3
+41351,"Auckland, Motat Ews",-36.86297,174.71185,Auckland,AU_Western,AU_Eastern,NA
+43711,"Auckland, Mangere 2 Ews",-36.9648,174.78052,Auckland,AU_Western,AU_Eastern,AU_SouthWestern
+37852,"Auckland, North Shore Albany Ews",-36.74827,174.71377,Auckland,AU_Rosedale,NA,NA
+45217,Manukau Heads Ews,-37.05299,174.54906,Auckland,NA,NA,NA
+2006,Pukekohe Ews,-37.20637,174.86384,Auckland,NA,NA,NA
+17838,Warkworth Ews,-36.43435,174.66766,Auckland,AU_Warkworth,NA,NA
+1340,Leigh 2 Ews,-36.26925,174.7992,Auckland,NA,NA,NA
+38619,Firth Of Thames Ews,-37.21514,175.45045,Auckland,NA,NA,NA
+25162,Whatawhata 2 Ews,-37.78832,175.06906,Auckland,NA,NA,NA
+26117,"Hamilton, Ruakura 2 Ews",-37.77389,175.30517,Auckland,WK_Hamilton,NA,NA
+1962,Auckland Aero,-37.00813,174.78873,Auckland,AU_Eastern,AU_SouthWestern,NA
+41228,Auckland Aero Backup Aws,-37.00895,174.80695,Auckland,AU_Eastern,AU_SouthWestern,NA
+23976,"Auckland, Whenuapai Aws",-36.78698,174.63045,Auckland,AU_Western,AU_Rosedale,NA
+45320,Thames Ews,-37.1585,175.55138,Auckland,WK_Thames,NA,NA
+40981,Whitianga Ews,-36.82817,175.67231,Auckland,NA,NA,NA
+1520,Whitianga Aero Aws,-36.83237,175.67542,Auckland,NA,NA,NA
+2112,Hamilton Aws,-37.86088,175.33175,Auckland,WK_Hamilton,NA,NA
+1287,Whangarei Aero Aws,-35.76694,174.36553,Auckland,NA,NA,NA
+1400,Whangaparaoa Aws,-36.60268,174.83458,Auckland,AU_ArmyBay,NA,NA
+1547,Paeroa Aws,-37.37065,175.68372,Auckland,NA,NA,NA
+9654,Mokohinau Aws,-35.90293,175.11537,Auckland,NA,NA,NA
+41212,"Wellington, Greta Point Cws",-41.30243,174.80574,Wellington,WG_MoaPoint,NA,NA
+38794,Maungaraki 3,-41.21207,174.87641,Wellington,WG_Seaview,WG_Porirua,WG_MoaPoint
+40750,"Upper Hutt, Trentham Ews",-41.14027,175.04283,Wellington,WG_Seaview,NA,NA
+3145,Paraparaumu Aero,-40.907,174.984,Wellington,WG_Paraparaumu,NA,NA
+12442,Paraparaumu Ews,-40.90392,174.98437,Wellington,WG_Paraparaumu,NA,NA
+21938,Martinborough Ews,-41.25231,175.38985,Wellington,NA,NA,NA
+41352,Levin Ews,-40.62699,175.26193,Wellington,MW_Levin,NA,NA
+12430,Blenheim Research Ews,-41.49891,173.96285,Wellington,MA_Blenheim,NA,NA
+40984,Masterton Ews,-40.98155,175.67932,Wellington,WG_Masterton,NA,NA
+37662,"Masterton, Te Ore Ore Cws",-40.957,175.707,Wellington,WG_Masterton,NA,NA
+37891,"Masterton, Te Ore Ore Srig",-40.957,175.707,Wellington,WG_Masterton,NA,NA
+12443,"Wellington, Kelburn 2",-41.286,174.768,Wellington,WG_MoaPoint,WG_Karori,NA
+18234,Baring Head,-41.40828,174.87146,Wellington,NA,NA,NA
+25354,"Wellington, Kelburn Aws",-41.28445,174.76794,Wellington,WG_MoaPoint,WG_Karori,NA
+3445,Wellington Aero,-41.322,174.804,Wellington,WG_MoaPoint,NA,NA
+41229,Wellington Aero Backup Aws,-41.3313,174.80566,Wellington,WG_MoaPoint,NA,NA
+41559,"Porirua, Elsdon Park Aws",-41.12683,174.83531,Wellington,WG_Porirua,NA,NA
+25531,Mana Island Aws,-41.08676,174.77996,Wellington,WG_Porirua,NA,NA
+8567,Paraparaumu Aero Aws,-40.90455,174.98517,Wellington,WG_Paraparaumu,NA,NA
+2685,Ngawi Aws,-41.5885,175.2337,Wellington,NA,NA,NA
+4424,Cape Campbell Aws,-41.7265,174.2762,Wellington,NA,NA,NA
+3275,Levin Aws,-40.61986,175.25954,Wellington,MW_Levin,NA,NA
+36735,Masterton Aero Aws,-40.97617,175.63899,Wellington,WG_Masterton,NA,NA
+4326,Blenheim Aero Aws,-41.52135,173.86432,Wellington,MA_Blenheim,NA,NA
+4395,Brothers Island Aws,-41.1033,174.44174,Wellington,NA,NA,NA
+26169,Stephens Island Aws,-40.66511,173.99969,Wellington,NA,NA,NA
+24120,"Christchurch, Kyle St Ews",-43.53074,172.60769,Christchurch,CA_Christchurch,NA,NA
+43967,Bromley Ews,-43.52828,172.72096,Christchurch,CA_Christchurch,NA,NA
+44147,Bromley Ews Raine,-43.52828,172.72096,Christchurch,CA_Christchurch,NA,NA
+40985,Diamond Harbour Ews,-43.63312,172.72808,Christchurch,NA,NA,NA
+17603,"Lincoln, Broadfield Ews",-43.626220000000004,172.4704,Christchurch,NA,NA,NA
+43485,"Lincoln, Broadfield Raine Ews",-43.626220000000004,172.4704,Christchurch,NA,NA,NA
+43251,Ohoka Cws,-43.3423,172.56574,Christchurch,CA_Rangiora,NA,NA
+17244,Rangiora Ews,-43.32858,172.61114,Christchurch,CA_Rangiora,NA,NA
+36593,Akaroa Ews,-43.80938,172.96574,Christchurch,NA,NA,NA
+26607,Waipara West Ews,-43.07026,172.65344,Christchurch,NA,NA,NA
+45225,Waipara North Branch Ews,-42.94096,172.42789,Christchurch,NA,NA,NA
+41282,Medbury Cws,-42.88031,172.68964,Christchurch,NA,NA,NA
+39661,Chertsey Cws,-43.79393,171.9607,Christchurch,NA,NA,NA
+42704,Balmoral East Cws,-42.83025,172.83463,Christchurch,NA,NA,NA
+42899,Winchmore 2 Ews,-43.78935,171.79032,Christchurch,NA,NA,NA
+44001,"Winchmore 2, Raine Ews",-43.78935,171.79032,Christchurch,NA,NA,NA
+41200,Wakanui 2 Cws,-43.97167,171.81097,Christchurch,CA_Ashburton,NA,NA
+44637,Cass Ews,-43.03447,171.75999,Christchurch,NA,NA,NA
+39845,"Lismore, Racemans House Cws",-43.9207,171.4856,Christchurch,NA,NA,NA
+36645,Methven Cws,-43.63978,171.65205,Christchurch,NA,NA,NA
+36157,Waiau School Cws,-42.653,173.043,Christchurch,NA,NA,NA
+44763,Christchurch Botanic Gardens Ews,-43.5294,172.62,Christchurch,CA_Christchurch,NA,NA
+4843,Christchurch Aero,-43.493,172.537,Christchurch,CA_Christchurch,NA,NA
+41230,Christchurch Aero Backup Aws,-43.48901,172.52841,Christchurch,CA_Christchurch,NA,NA
+26170,Ashburton Aero Aws,-43.90328,171.80413,Christchurch,CA_Ashburton,NA,NA
+11234,Hanmer Forest Ews,-42.53433,172.85098,Christchurch,NA,NA,NA
+4960,Le Bons Bay Aws,-43.7461,173.1219,Christchurch,NA,NA,NA
+31832,Cheviot Ews,-42.82722,173.22409,Christchurch,NA,NA,NA
+37651,Culverden Aws,-42.77014,172.88947,Christchurch,NA,NA,NA

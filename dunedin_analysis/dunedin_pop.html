@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.2.269">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Dunedin Population Variance</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+
+<script src="dunedin_pop_files/libs/clipboard/clipboard.min.js"></script>
+<script src="dunedin_pop_files/libs/quarto-html/quarto.js"></script>
+<script src="dunedin_pop_files/libs/quarto-html/popper.min.js"></script>
+<script src="dunedin_pop_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="dunedin_pop_files/libs/quarto-html/anchor.min.js"></script>
+<link href="dunedin_pop_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="dunedin_pop_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="dunedin_pop_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="dunedin_pop_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="dunedin_pop_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Dunedin Population Variance</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+</header>
+
+<section id="intro" class="level1">
+<h1>Intro</h1>
+<p>Using the term dates as an explanatory variable, we want to estimate the effect that the dates have on the observed concentration of genome copies.<br>
+</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Dunedin Flow</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>data.flow <span class="ot">=</span> <span class="fu">read_csv</span>(<span class="st">'dunedin_flow_data.csv'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Rows: 93 Columns: 18
+── Column specification ────────────────────────────────────────────────────────
+Delimiter: ","
+chr  (1): catchment
+dbl (17): Day, 7/1/2021, 8/1/2021, 9/1/2021, 10/1/2021, 11/1/2021, 12/1/2021...
+
+ℹ Use `spec()` to retrieve the full column specification for this data.
+ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>data.flow.tidy <span class="ot">=</span> data.flow <span class="sc">%&gt;%</span> </span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="sc">-</span><span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">18</span>), <span class="at">names_to =</span> <span class="st">'start_date'</span>, <span class="at">values_to =</span> <span class="st">'daily_flow_m3'</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">start_date =</span> <span class="fu">mdy</span>(start_date) <span class="sc">+</span> Day <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span><span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(start_date) <span class="sc">%&gt;%</span> </span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="st">'date'</span> <span class="ot">=</span> start_date, <span class="st">'SampleLocation'</span> <span class="ot">=</span> catchment)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Dunedin cov conc</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>data.waste <span class="ot">=</span> <span class="fu">read_csv</span>(<span class="st">'../data/ww_data_all.csv'</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(SampleLocation <span class="sc">%in%</span> (data.flow.tidy<span class="sc">$</span>SampleLocation <span class="sc">%&gt;%</span> <span class="fu">unique</span>()))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Rows: 7697 Columns: 5
+── Column specification ────────────────────────────────────────────────────────
+Delimiter: ","
+chr  (2): SampleLocation, Result
+dbl  (2): sars_gcl, copies_per_day_per_person
+date (1): Collected
+
+ℹ Use `spec()` to retrieve the full column specification for this data.
+ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Flow with waste</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>data.waste.flow <span class="ot">=</span> data.waste <span class="sc">%&gt;%</span> </span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(SampleLocation, <span class="at">date =</span> Collected, sars_gcl, copies_per_day_per_person) <span class="sc">%&gt;%</span> </span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># About 40 rows removed. Might be a good idea to consider later if we're just interested in Dates on Flow.</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">inner_join</span>(data.flow.tidy, <span class="at">by =</span> <span class="fu">c</span>(<span class="st">'SampleLocation'</span>, <span class="st">'date'</span>))</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Define Term dates</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="co"># https://www.otago.ac.nz/news/events/keydates/archive/index.html</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Deciding that O-Week is the official start since it's likely most students would be in Dunedin at that point.</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Had to use Wayback Machine to get SS dates for 2021-22</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="co"># https://web.archive.org/web/20220319234748/https://www.otago.ac.nz/summerschool/study/keydates/index.html</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>data.dates <span class="ot">=</span> <span class="fu">tibble</span>(</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">date =</span> <span class="fu">dmy</span>(<span class="fu">c</span>(<span class="st">'10/01/22'</span>, <span class="st">'24/02/22'</span>, <span class="st">'21/02/22'</span>, <span class="st">'15/04/22'</span>, <span class="st">'26/04/22'</span>, <span class="st">'22/06/22'</span>, <span class="st">'04/07/22'</span>, <span class="st">'27/08/22'</span>, <span class="st">'05/09/22'</span>, <span class="st">'12/11/22'</span>, <span class="st">'09/01/23'</span>)),</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">event =</span> <span class="fu">c</span>(<span class="st">'Summer School Start'</span>, <span class="st">'Summer School End'</span>, <span class="st">'Sem 1 Start'</span>, <span class="st">'Sem 1 Mid Sem-Break Start'</span>, <span class="st">'Sem 1 Resume'</span>, <span class="st">'Sem 1 End'</span>, <span class="st">'Sem 2 Start'</span>, <span class="st">'Sem 2 Mid Sem-Break Start'</span>, <span class="st">'Sem 2 Resume'</span>, <span class="st">'Sem 2 End'</span>, <span class="st">'Summer School Start'</span>)</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Vis</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>data.dates <span class="sc">%&gt;%</span> knitr<span class="sc">::</span><span class="fu">kable</span>(<span class="at">caption =</span> <span class="st">'OTAGO UNI KEY DATES'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<table class="table table-sm table-striped">
+<caption>OTAGO UNI KEY DATES</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;">date</th>
+<th style="text-align: left;">event</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">2022-01-10</td>
+<td style="text-align: left;">Summer School Start</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">2022-02-24</td>
+<td style="text-align: left;">Summer School End</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">2022-02-21</td>
+<td style="text-align: left;">Sem 1 Start</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">2022-04-15</td>
+<td style="text-align: left;">Sem 1 Mid Sem-Break Start</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">2022-04-26</td>
+<td style="text-align: left;">Sem 1 Resume</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">2022-06-22</td>
+<td style="text-align: left;">Sem 1 End</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">2022-07-04</td>
+<td style="text-align: left;">Sem 2 Start</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">2022-08-27</td>
+<td style="text-align: left;">Sem 2 Mid Sem-Break Start</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">2022-09-05</td>
+<td style="text-align: left;">Sem 2 Resume</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">2022-11-12</td>
+<td style="text-align: left;">Sem 2 End</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">2023-01-09</td>
+<td style="text-align: left;">Summer School Start</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Determine which dates we expect to have students.</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Define a function which can determine this easily. </span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>study_in_session <span class="ot">&lt;-</span> <span class="cf">function</span>(d){</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">length</span>(d) <span class="sc">&gt;</span> <span class="dv">1</span>) <span class="fu">return</span> (<span class="fu">sapply</span>(d, study_in_session))</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Takes a date and returns True if we expect students to be in session at that time. </span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Just going to assume for now that the population of Summer School students is negligible. </span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  intervals <span class="ot">=</span> <span class="fu">matrix</span>(<span class="at">nrow =</span> <span class="dv">2</span>, <span class="at">byrow =</span> T,</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>                     <span class="fu">c</span>(<span class="st">'21-02-22'</span>, <span class="st">'22-06-22'</span>, </span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>                       <span class="st">'04-07-22'</span>, <span class="st">'12-11-22'</span>))</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">any</span>(<span class="fu">apply</span>(intervals, <span class="dv">1</span>, <span class="cf">function</span>(i) <span class="fu">dmy</span>(i[<span class="dv">1</span>]) <span class="sc">&lt;=</span> d <span class="sc">&amp;</span> <span class="fu">dmy</span>(i[<span class="dv">2</span>]) <span class="sc">&gt;=</span> d))</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="fu">study_in_session</span>(<span class="fu">ymd</span>(<span class="st">'2022-07-03'</span>));  <span class="fu">study_in_session</span>(<span class="fu">ymd</span>(<span class="st">'2022-07-04'</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] FALSE</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] TRUE</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>data.waste.flow.date <span class="ot">=</span> data.waste.flow <span class="sc">%&gt;%</span> </span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">students_in_session =</span> <span class="fu">study_in_session</span>(date))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Now we have all the necessary data all ready to go, fit a first model to determine the concentration of COVID bodies using these dates.</p>
+<p><img src="waste_catchments_dunedin.png" class="img-fluid"></p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Split data by location</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>data.model <span class="ot">=</span> <span class="fu">split</span>(data.waste.flow.date, data.waste.flow.date<span class="sc">$</span>SampleLocation)</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Start with Tahuna since it seems more likely that it will show significance (it's the catchment for basically the whole student population.)</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>data.model<span class="sc">$</span>OT_DunedinTahuna <span class="sc">%&gt;%</span> </span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> date, <span class="at">y =</span> sars_gcl)) <span class="sc">+</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">col =</span> students_in_session)) <span class="sc">+</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">'Observed Concentration per L in OT_DunedinTahuna'</span>,</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">'Date'</span>, <span class="at">y =</span> <span class="st">'COVID-19 Genome Copies per Litre WW'</span>) <span class="sc">+</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_date</span>(<span class="at">date_breaks =</span> <span class="st">'1 month'</span>) <span class="sc">+</span></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">30</span>, <span class="at">vjust =</span> <span class="fl">0.6</span>),</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>        <span class="at">legend.title =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>        <span class="at">legend.position =</span> <span class="st">'top'</span>) <span class="sc">+</span></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> <span class="fu">hue_pal</span>()(<span class="dv">2</span>), <span class="at">labels =</span> <span class="fu">rev</span>(<span class="fu">c</span>(<span class="st">'School Term'</span>, <span class="st">'Out of Term'</span>)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="dunedin_pop_files/figure-html/modelling%20whole%20gc-1.png" class="img-fluid" width="672"></p>
+</div>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># For plotting Gam smoother with dates.</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">'../produce_modelling_summaries.R'</span>)</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>fit.tahuna <span class="ot">=</span> <span class="fu">gam</span>(<span class="at">data =</span> data.model<span class="sc">$</span>OT_DunedinTahuna <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(<span class="at">date.n =</span> <span class="fu">as.numeric</span>(date)),</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>                 <span class="co"># A knot for every month. </span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>                 sars_gcl <span class="sc">~</span> <span class="fu">s</span>(date.n, <span class="at">k =</span> <span class="dv">11</span>) <span class="sc">+</span> students_in_session,</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>                 <span class="at">family =</span> <span class="st">'quasipoisson'</span>)</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="fu">plot.gam_mine</span>(fit.tahuna)[[<span class="dv">2</span>]]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="dunedin_pop_files/figure-html/modelling%20whole%20gc-2.png" class="img-fluid" width="672"></p>
+</div>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit.tahuna)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Family: quasipoisson 
+Link function: log 
+
+Formula:
+sars_gcl ~ s(date.n, k = 11) + students_in_session
+
+Parametric coefficients:
+                        Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept)               8.1420     0.6740  12.080   &lt;2e-16 ***
+students_in_sessionTRUE   0.6248     0.5346   1.169    0.246    
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Approximate significance of smooth terms:
+            edf Ref.df     F p-value    
+s(date.n) 9.015  9.401 3.691 0.00033 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+R-sq.(adj) =   0.36   Deviance explained = 59.4%
+GCV = 9001.1  Scale est. = 9341.9    n = 87</code></pre>
+</div>
+</div>
+<p>This is saying that it is likely there is no significant effect of students on the observed number of genome copies. This I believe makes sense since the number of genome copies is copies per litre, and hence it’s effectively normalised by the amount of water usage which is likely correlated with more students. However, interpretting the coefficient as significant, students being in the area correspond with an increase in observed genome copies per litre of about 86.8%.<br>
+It is also interesting to note that the largest spikes in cases seem to be around the beginning of new terms. This is unsurprising if we’re considering the amount of large social events happening around this time.<br>
+<br>
+The next consideration is determine significance in copies-per-litre-<em>per-person-population</em>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>fit.tahuna2 <span class="ot">=</span> <span class="fu">gam</span>(<span class="at">data =</span> data.model<span class="sc">$</span>OT_DunedinTahuna <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(<span class="at">date.n =</span> <span class="fu">as.numeric</span>(date)),</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>                 <span class="co"># A knot for every month. </span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>                 copies_per_day_per_person <span class="sc">~</span> <span class="fu">s</span>(date.n, <span class="at">k =</span> <span class="dv">11</span>) <span class="sc">+</span> students_in_session,</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>                 <span class="at">family =</span> <span class="st">'quasipoisson'</span>)</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="fu">plot.gam_mine</span>(fit.tahuna2)[[<span class="dv">2</span>]]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="dunedin_pop_files/figure-html/modelling%202%20per%20person-1.png" class="img-fluid" width="672"></p>
+</div>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit.tahuna2)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Family: quasipoisson 
+Link function: log 
+
+Formula:
+copies_per_day_per_person ~ s(date.n, k = 11) + students_in_session
+
+Parametric coefficients:
+                        Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept)              13.5893     0.6740  20.163   &lt;2e-16 ***
+students_in_sessionTRUE   0.6248     0.5346   1.169    0.246    
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Approximate significance of smooth terms:
+            edf Ref.df     F p-value    
+s(date.n) 9.015  9.401 3.691 0.00033 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+R-sq.(adj) =   0.36   Deviance explained = 59.4%
+GCV = 2.0895e+06  Scale est. = 2.1687e+06  n = 87</code></pre>
+</div>
+</div>
+<p>What should’ve been obvious is that the <em>copies-per-litre-per-person</em> is simply a scale factor of the <code>sars_gcl</code> value. Hence the significance and effect is the same.<br>
+<br>
+If we look at <em>Flow</em> now.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>data.model<span class="sc">$</span>OT_DunedinTahuna <span class="sc">%&gt;%</span> </span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> date, <span class="at">y =</span> daily_flow_m3)) <span class="sc">+</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">col =</span> students_in_session)) <span class="sc">+</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>() <span class="sc">+</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">'Observed Flow (m3) in OT_DunedinTahuna'</span>,</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">'Date'</span>, <span class="at">y =</span> <span class="st">'Daily Flow (m3)'</span>) <span class="sc">+</span></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_date</span>(<span class="at">date_breaks =</span> <span class="st">'1 month'</span>) <span class="sc">+</span></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">30</span>, <span class="at">vjust =</span> <span class="fl">0.6</span>),</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>        <span class="at">legend.title =</span> <span class="fu">element_blank</span>(),</span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>        <span class="at">legend.position =</span> <span class="st">'top'</span>) <span class="sc">+</span></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values =</span> <span class="fu">hue_pal</span>()(<span class="dv">2</span>), <span class="at">labels =</span> <span class="fu">rev</span>(<span class="fu">c</span>(<span class="st">'School Term'</span>, <span class="st">'Out of Term'</span>)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="dunedin_pop_files/figure-html/modelling%203%20flow-1.png" class="img-fluid" width="672"></p>
+</div>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Should ignore these outlying observations</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>fit.tahuna.flow <span class="ot">=</span> <span class="fu">gam</span>(<span class="at">data =</span> data.model<span class="sc">$</span>OT_DunedinTahuna <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(<span class="at">date =</span> <span class="fu">as.numeric</span>(date)),</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>                      <span class="co"># 5 knots to account for seasonal variation.</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>                      daily_flow_m3 <span class="sc">~</span> <span class="fu">s</span>(date, <span class="at">k =</span> <span class="dv">5</span>) <span class="sc">+</span> students_in_session,</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>                      <span class="at">family =</span> <span class="st">'quasipoisson'</span>)</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="fu">plot.gam_mine</span>(fit.tahuna.flow)[[<span class="dv">2</span>]]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="dunedin_pop_files/figure-html/modelling%203%20flow-2.png" class="img-fluid" width="672"></p>
+</div>
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit.tahuna.flow)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Family: quasipoisson 
+Link function: log 
+
+Formula:
+daily_flow_m3 ~ s(date, k = 5) + students_in_session
+
+Parametric coefficients:
+                        Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept)             10.35453    0.19386  53.411   &lt;2e-16 ***
+students_in_sessionTRUE  0.02923    0.22600   0.129    0.897    
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Approximate significance of smooth terms:
+         edf Ref.df     F p-value  
+s(date) 2.83  3.363 2.108  0.0992 .
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+R-sq.(adj) =  0.054   Deviance explained = 15.7%
+GCV = 5175.9  Scale est. = 7637.4    n = 86</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>fit.tahuna.flow2 <span class="ot">=</span> <span class="fu">gam</span>(<span class="at">data =</span> data.model<span class="sc">$</span>OT_DunedinTahuna <span class="sc">%&gt;%</span> <span class="fu">filter</span>(daily_flow_m3 <span class="sc">&lt;</span> <span class="fl">12e4</span>) <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(<span class="at">date =</span> <span class="fu">as.numeric</span>(date)),</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>                      <span class="co"># 5 knots to account for seasonal variation.</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>                      daily_flow_m3 <span class="sc">~</span> <span class="fu">s</span>(date, <span class="at">k =</span> <span class="dv">5</span>) <span class="sc">+</span> students_in_session,</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>                      <span class="at">family =</span> <span class="st">'quasipoisson'</span>)</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="fu">plot.gam_mine</span>(fit.tahuna.flow2)[[<span class="dv">2</span>]]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="dunedin_pop_files/figure-html/modelling%203%20flow-3.png" class="img-fluid" width="672"></p>
+</div>
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit.tahuna.flow2)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Family: quasipoisson 
+Link function: log 
+
+Formula:
+daily_flow_m3 ~ s(date, k = 5) + students_in_session
+
+Parametric coefficients:
+                        Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept)             10.32712    0.05017 205.833   &lt;2e-16 ***
+students_in_sessionTRUE -0.02803    0.05833  -0.481    0.632    
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Approximate significance of smooth terms:
+          edf Ref.df    F p-value  
+s(date) 2.192  2.689 3.13  0.0253 *
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+R-sq.(adj) =  0.126   Deviance explained = 17.3%
+GCV = 550.46  Scale est. = 562.96    n = 84</code></pre>
+</div>
+</div>
+<p>So after removing the outlying observations, there appears to be little to no effect of students being in the school term and the amount of flow entering the waste water catchment.<br>
+<br>
+</p>
+<section id="summary" class="level2">
+<h2 class="anchored" data-anchor-id="summary">Summary</h2>
+<p>From what I can gather, it seems like there is still too little data to support a model for students leaving over the school term. Since we don’t have the flow data for the past 2-3 months (which would be useful), nor much data between November and December of 2021, there is too little data to arrive at any conclusions of Student effects on Flow or Concentration of Genome Copies per L.</p>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

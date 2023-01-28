@@ -1,0 +1,421 @@
+---
+title: "Final Summary"
+subtitle: "COVID-19 Confounding Effects and Normalisation Research"
+author: 
+  - name: "Toby Hayward"
+  - name: "Thomas Lumley"
+date: today
+format: pdf
+editor: source
+---
+
+```{r setup, include=F}
+library(tidyverse)
+library(lubridate)
+library(scales)
+
+# Data
+data.wastewater = read_csv('../data/ww_data_all.csv')
+data.cases = read_csv('../data/cases_site.csv')
+data.flow = read_csv('../weather_data/flow_data_clean.csv')
+```
+
+# Background
+
+As self-reported COVID-19 cases are becoming increasingly less useful to measure the prevalence of **COVID-19** around Aotearoa/New Zealand, scientists and the government has an increased interest in using *Wastewater* data in place of case count. The benefits to this are a simple steady supply of prevalence data that isn't dependent on the population's ability to diagnose themselves, and the ability to detect an emergence of an outbreak the moment people start releasing SARS-CoV2 genome copies into their waste; which could be days before they even suppose COVID-19 symptoms. \
+And whilst Wastewater data appears somewhat accurate at estimating, there is often times a large amount of variance between what the Wastewater is estimating and the actual case average; especially as we narrow down by the location. \
+Hence arises the problem this research aimed to tackle: **What confounding effects for Wastewater sampling exist and how can we account for them?**
+
+
+```{r national ww over time, message = F, warning = F, echo = F, fig.width=10, fig.height=5}
+#| label: National and Regional Case to Wastewater Average
+
+
+data.cases.national = read_csv('../data/cases_national.csv')
+data.waste.national = read_csv('../data/ww_national.csv')
+
+ww.cases.ratio = (data.cases.national %>% full_join(data.waste.national) %>% lm(data = ., copies_per_day_per_person ~ case_7d_avg) %>% coef())[[2]]
+
+data.cases.national %>% 
+  full_join(data.waste.national) %>% 
+  ggplot(aes(x = week_end_date)) +
+  geom_line(aes(y = copies_per_day_per_person, col = 'copies_per_day_per_person')) +
+  geom_line(aes(y = case_7d_avg * ww.cases.ratio, col = 'case_7d_avg')) +
+  theme_bw() +
+  labs(title = 'SARS-CoV-2 in Wastewater and Reported COVID-19 Case Numbers', 
+       subtitle = 'National Average for Aotearoa/New Zealand',
+       y = 'Genome copies per person per day') +
+  scale_y_log10(breaks = 10^(5:7), labels = c('100K', '1M', '10M'), 
+                sec.axis = sec_axis(trans=~./ww.cases.ratio, name = 'Cases 7-Day Average')) +
+  scale_x_date(date_labels = "%b-%y", breaks = date_breaks()) +
+  scale_colour_manual(labels = c('Cases', 'Wastewater'), values = hue_pal()(4)[3:2]) +
+  theme(axis.title.x = element_blank(),
+        legend.position = 'bottom',
+        legend.title = element_blank())
+  
+data.cases.regional = read_csv('../data/cases_regional.csv')
+data.waste.regional = read_csv('../data/ww_regional.csv')
+
+ww.cases.ratio.regional = (data.cases.regional %>% full_join(data.waste.regional) %>% filter(Region == 'Auckland') %>% lm(data = ., copies_per_day_per_person ~ case_7d_avg) %>% coef())[[2]]
+
+
+data.cases.regional %>% 
+  full_join(data.waste.regional) %>% 
+  filter(Region == 'Auckland') %>% 
+  ggplot(aes(x = week_end_date)) +
+  geom_line(aes(y = copies_per_day_per_person, col = 'copies_per_day_per_person')) +
+  geom_line(aes(y = case_7d_avg * ww.cases.ratio.regional, col = 'case_7d_avg')) +
+  theme_bw() +
+  labs(title = 'SARS-CoV-2 in Wastewater and Reported COVID-19 Case Numbers', 
+       subtitle = 'Regional Average for Tāmaki Makaurau/Auckland',
+       y = 'Genome copies per person per day') +
+  scale_y_log10(breaks = 10^(5:7), labels = c('100K', '1M', '10M'), 
+                sec.axis = sec_axis(trans=~./ww.cases.ratio, name = 'Cases 7-Day Average')) +
+  scale_x_date(date_labels = "%b-%y", breaks = date_breaks()) +
+  scale_colour_manual(labels = c('Cases', 'Wastewater'), values = hue_pal()(4)[3:2]) +
+  theme(axis.title.x = element_blank(),
+        legend.position = 'bottom',
+        legend.title = element_blank())
+
+```
+
+
+# Areas of Investigation
+
+In the research that has been completed so far, we investigated three potential correlations:
+
+1. **Rain**
+2. **Flow**
+3. **Population Variance**
+
+Using linear modelling techniques, we aim to identify significance between these variables and the concentration of SARS-CoV2 genome copies. \
+We're interested in measuring this potential correlation in all areas that we have both Wastewater data, and Rain/Flow/Population data for. 
+
+## Rain
+
+Although an ideal assumption is that Rainwater is processed separately to Wastewater, [it is often not reliably the case](https://www.stuff.co.nz/dominion-post/news/wellington/128109399/unachievable-wellington-waters-mea-culpa-on-ending-sewage-overflows). \
+It is also a simple first choice to investigate, as rain data can be easily pulled from *Cliflo's (NIWA)* [own database](https://cliflo.niwa.co.nz/) and requires no permission to access other than a free Cliflo account (which entitles you to pull up to 2 million rows of data).\
+\
+Assuming that some amount of rain is leaked into the wastewater system every day, we can estimate the following:\
+
+If we let: 
+
+* $N(t)$ = # SARS genomes in Wastewater at time $t$ (count).
+* $V(t)$ = Wastewater volume from waste sources, excluding rain (litres).
+* $\hat{V}$ = Estimated Total Wastewater flow. (Not dependant on time)
+* $R(t)$ = Additional volume of water from Rain runoff (litres).
+* $C(t)$ = Concentration of SARS genomes per litre Wastewater.
+
+Then:
+
+$$C(t) = \frac{N(t)}{V(t) + R(t)}$$
+$$\implies \hat{N}(t) = C(t) \times \hat{V} = \frac{N(t) \times \hat{V}}{V(t) + R(t)}$$
+$$\implies log(\hat{N}(t)) = log(N(t)) + log(\frac{\hat{V}}{V(t) + R(t)}) \approx log(N(t)) + log(\frac{1}{1+\frac{R(t)}{V(t)}})$$
+$$for \quad \hat{V} = \overline{V(t) + R(t)} \approx V(t)$$
+
+$$where \quad log(\frac{1}{1+\frac{R(t)}{V(t)}}) = -log(1+\frac{R(t)}{V(t)}) \approx -\frac{R(t)}{V(t)}$$
+$$\implies log(\hat{N}(t)) \approx log(N(t)) - \frac{R(t)}{V(t)}$$
+
+
+So assuming that rain confounds over the course of up to a week, we can manipulate the rain data into a series of *lagged days* as separate variables, fit a *smoother* to account for temporal variation (outbreaks and such) and estimate the effect that rain has on the observed concentration of SARS gcs.
+
+$$C_t \sim Quasipoisson(\lambda_t, k)$$
+$$log(\lambda_t) = s(Date_t) + \beta_1R_t + \beta_0  $$
+
+The number of *knots* in the smoother we choose to be equal to the number of months that we have data for (which was usually about 12). The smoother wrapped around the date should account plenty enough for the variation of outbreaks over time so that we can get a rough estimate of how much rainfall impacts the concentration.
+
+
+
+### Locations of Interest
+
+::: {#fig-maps layout-ncol=3}
+
+![Auckland](../maps/Auckland_Map.png)
+
+![Wellington](../maps/Welly_Map.png)
+
+![Christchurch](../maps/Canterbury_Map.png)
+
+Maps of major Aotearoa cities with waste catchments and mapped rain catchments.
+:::
+We supposed that a rain catchment that was within 5Km of a waste catchment was considered relevant, and the daily rain observed was averaged over the catchments relevant. \
+
+The catchments we were interested in are listed below:
+
+```{r catchments for rain, echo = F, message = F}
+data.rain.summary = read_csv('rain_results.csv')
+data.rain.summary[,1] %>% knitr::kable()
+```
+
+`WK_Thames` was considered but had insufficient data to support the model. 
+
+
+\
+\
+
+To see the full analysis, see `wastewater_rain_analysis/WastewaterRain.html` in the repo.
+
+
+### Results
+
+Each catchment was fitted to the same model as listed above with 12 knots. The script `produce_modelling_summaries.R` contains the functions that I used to fit these models and obtain summary statistics.\
+An example fit would look like this:
+
+```{r rain fit example, message=F, fig.width=8, fig.height=5}
+#| layout: [[100], [50, 50], [50, 50]]
+
+data.model = read_csv('flowraindata.csv')
+data.model = data.model %>% split(data.model$SampleLocation)
+source('../produce_modelling_summaries.R')
+model.AU_Rosedale = produce_rainsummary.gam(data.model$AU_Rosedale)
+print_rainsummary.gam(model.AU_Rosedale)
+
+```
+
+From above, the catchment observed was `AU_Rosedale`. The model shows that there is high significance in the effect of rainfall on the observed number of SARS-CoV2 Genome Copies (p-value = `r model.AU_Rosedale$p %>% round(4) %>% format(scientific = F)`), and estimates a combined effect of rainfall over the past 7 days to correspond with a decrease in concentration between `r (model.AU_Rosedale$confint_95 %>% round(2))[2]*100`% and `r (model.AU_Rosedale$confint_95 %>% round(2))[1]*100`%. The first two figures show that by eyeball we can see that the smoother that is approximating the variance over time seems appropriate. The third figure represents the trend of observed concentration of genome copies per person to the amount of rainfall, and the final figure is a visual representation of how much the concentration has decreased.
+
+\
+\
+
+Below is a summary table of all the fitted models to locations, ordered by level of significance. 
+
+```{r echo = F}
+data.rain.summary %>% mutate(across(.cols = 2:3, ~round(.x, 3))) %>% rename_with(.cols = 2, ~paste0(.x, '*')) %>% knitr::kable()
+```
+
+*The combined effect of each lagged day's effect on the observed number of genome copies per litre, per person population.\
+\
+
+From above, it is clear that rainfall is significant in it's effect on the observed concentration of SARS-CoV2 genome copies per litre. This means that it is likely that rain overflow is making it's way into our sewage system.\
+We'd like to assume that rain accounts for all of the variation in *wastewater flow*, however we know this is not the case as there are many more impactful factors which affect overall flow in wastewater. Hence we suspect that a more reliable means for normalising the concentration of genome copies will be to account for **Flow**; which some sampling sites have the measurements for.
+
+
+\newpage
+
+## Flow
+
+In the data, the scaled number of SARS-CoV2 genome copies per litre wastewater is estimated by dividing the observed concentration of genome copies per litre by the *yearly average amount of flow*. If this is a fair assumption, then we should see little variance year round for all locations when dividing the genome copies per litre by the actual amount of flow. 
+
+
+```{r flow normalisation graph, echo = F, warning=F, message=F, fig.width=12, fig.height=7}
+data.wastewater %>% rename_with(~toupper(.x)) %>% rename('DATECOLLECTED' = COLLECTED) %>% 
+  inner_join(data.flow) %>% 
+  filter(SAMPLELOCATION != 'AU_Western') %>% 
+  mutate(test = SARS_GCL * daily_flow_rate_m3) %>% 
+  ggplot(aes(x = DATECOLLECTED)) +
+  geom_point(aes(y = test)) +
+  facet_wrap(~SAMPLELOCATION, scales = 'free_y', ncol = 4) +
+  labs(y = 'Scaled Concentration x Actual Flow', x = '') +
+  theme_bw()
+```
+
+So it is obvious that the flow varies largely over time and daily flow must be accounted for when scaling the concentration of genome copies per litre. \
+\
+If we are interested in the effect of flow on the observed number of genome copies, we can perform a similar analysis as what we did with *rainfall* and fit a linear model with the same formula. 
+
+$$C_t \sim Quasipoisson(\lambda_t, k)$$
+$$log(\lambda_t) = s(Date_t) + \beta_1F_t + \beta_0  $$
+
+Then determine the significance of flow for each location. 
+
+### Locations of Interest
+
+Because of limited flow data, we are limited to analysing just the following locations:
+
+```{r catchments for flow, echo = F, message = F}
+data.flow.summary = read_csv('flow_results.csv')
+data.flow.summary[,1] %>% knitr::kable()
+```
+
+
+`AU_Western` was considered but had insufficient data to support the model (no flow data within dates of interest). 
+
+
+\
+\
+
+To see the full analysis, see `wastewater_flow_analysis/WastewaterFlow.html` in the repo.
+
+
+
+### Results
+
+Each catchment was fitted to the same model as listed above with 12 knots.\
+An example fit would look like this:
+
+```{r flow fit example, message=F, fig.width=8, fig.height=5, warning = F}
+#| layout: [[100], [50, 50], [50, 50]]
+
+model.AU_Rosedale.flow = produce_flowsummary.gam(data.model$AU_Rosedale)
+print_flowsummary.gam(model.AU_Rosedale.flow)
+
+```
+
+From above, the catchment observed was `AU_Rosedale`. The model shows that there is high significance in the effect of rainfall on the observed number of SARS-CoV2 Genome Copies (p-value = `r model.AU_Rosedale$p %>% round(4) %>% format(scientific = F)`), and estimates a combined effect of rainfall over the past 7 days to correspond with a decrease in concentration between `r (model.AU_Rosedale$confint_95 %>% round(2))[2]*100`% and `r (model.AU_Rosedale$confint_95 %>% round(2))[1]*100`%. The first two figures show that by eyeball we can see that the smoother that is approximating the variance over time seems appropriate. The third figure represents the trend of observed concentration of genome copies per person to the amount of rainfall, and the final figure is a visual representation of how much the concentration has decreased.
+
+\
+\
+
+Below is a summary table of all the fitted models to locations, ordered by level of significance. 
+
+```{r echo = F}
+data.flow.summary %>% mutate(across(.cols = 2:4, ~round(.x, 3)), `Estimated Loss in Concentration` = `Estimated Loss in Concentration` * -1) %>% rename_with(.cols = 3, ~paste0(.x, '*')) %>% knitr::kable()
+```
+
+*Estimated Loss in Concentration given the median amount of flow for that location. \
+\
+
+Flow does not appear to be significant in most areas, however in those where it is a significantly large quoted effect for median flow is mentioned. `WG_MoaPoint` shows some significance (p-value = `r data.flow.summary[[3,4]] %>% round(3)`) with a *positive* effect of flow on the amount of observed concentration of genome copies. \
+\
+Admittedly, not a lot of care was taken to the data when conducting this part of the analysis and hence these results should be taken with a large grain of salt. **Definitely worth someone redoing!**
+
+\newpage
+
+## Rain Versus Flow
+
+Flow in is always going to prove more useful than rainfall, since the only way that rain can have an impact on the concentration of genome copies is by being introduced through *flow*. But from the analysis above, it does appear to have some significance in some places (and more so than flow for the time being, again the flow investigation deserves another shot), and could potentially be used in places where flow data is not readily available. \
+So begs the question of in which places can we get away with considering Rain in place of Flow. \
+\
+To investigate this, we can fit a similar model as the ones above, only consider both Rain and Flow in the model. We can then extract the effect of Flow when Rain is controlled, and if it proves significant then we get an understanding of just how much more variation in the concentration of SARS-CoV2 gcs is explained by Flow. 
+
+$$C_t \sim Quasipoisson(\lambda_t, k)$$
+$$log(\lambda_t) = s(Date_t) + \beta_1F_t + \beta_2 R_t + \beta_0  $$
+
+
+### Locations of Interest
+
+Because of limited flow data, we are limited to analysing the same locations as flow such that we also have rain data for those locations:
+
+
+```{r catchments for rainflow, echo = F, message = F}
+data.flowrain.summary = read_csv('flowrain_results.csv')
+data.flowrain.summary[,1] %>% knitr::kable()
+```
+
+
+To see the full analysis, see `wastewater_flow_analysis/WastewaterFlow.html` in the repo.
+
+
+
+### Results
+
+Each catchment was fitted to the same model as listed above with 12 knots.\
+An example fit would look like this:
+
+```{r rainflow fit example, message=F, fig.width=8, fig.height=5, warning = F}
+#| layout: [[100], [50, 50]]
+
+model.AU_Rosedale.rainflow = produce_flowrainsummary.gam(data.model$AU_Rosedale)
+print_flowrainsummary.gam(model.AU_Rosedale.rainflow)
+
+```
+
+
+Important to note there is that the `% Concentration Loss Explained` column explains the percentage loss in concentration *solely due to flow*. The estimates may seem wild for some of the locations, but what is more important here is determining the significance of the given value (p-value). 
+
+
+\
+\
+
+Below is a summary table of all the fitted models to locations, ordered by level of significance. 
+
+```{r echo = F}
+data.flowrain.summary %>% mutate(across(.cols = 2:4, ~round(.x, 3)), `Estimated Loss in Concentration` = `Estimated Loss in Concentration`) %>% rename_with(.cols = 3, ~paste0(.x, '*')) %>% knitr::kable()
+```
+
+*Estimated Loss in Concentration due solely to the median amount of flow for that location.\
+\
+
+This tells us that at least for the case of `WG_MoaPoint`, it is likely that we will need to use the Flow data in place of rain. From the rest of the analysis above, it is clear that at least from this location Flow is a more useful indicator of difference in concentration. It is also important to note that the corresponding estimate is actually an *increase* in concentration which doesn't seem right. \
+However for the majority of the other locations that we have flow and rain data access to, flow doesn't seem to explain much more variance over what rain already does. This is likely because flow is somewhat accounted for in the observed concentration of gcs when the number is divided by the yearly average flow; and hence any increase in variation is likely due to large rain spells. \
+
+
+## Population Variance
+
+Although we expect flow to vary proportional to the population of that caught by the waste catchment, it is worth investigating the case of where a large increase/decrease in population causes any change to the observed number of gcs caught by the catchment.\
+One particular location that we know has a regularly changing population size is **Dunedin**; where we know approximately [15% of the population are students attending Otago University.](https://www.otago.ac.nz/about/quickstats.html) If we assume some proportion of these students leave over the holiday period, then we can estimate the effect that it has on the observed number of gcs. \
+\
+```{r otago uni dates, echo - F}
+# Define Term dates
+# https://www.otago.ac.nz/news/events/keydates/archive/index.html
+# Deciding that O-Week is the official start since it's likely most students would be in Dunedin at that point.
+# Had to use Wayback Machine to get SS dates for 2021-22
+# https://web.archive.org/web/20220319234748/https://www.otago.ac.nz/summerschool/study/keydates/index.html
+data.dates = tibble(
+  date = dmy(c('10/01/22', '24/02/22', '21/02/22', '15/04/22', '26/04/22', '22/06/22', '04/07/22', '27/08/22', '05/09/22', '12/11/22', '09/01/23')),
+  event = c('Summer School Start', 'Summer School End', 'Sem 1 Start', 'Sem 1 Mid Sem-Break Start', 'Sem 1 Resume', 'Sem 1 End', 'Sem 2 Start', 'Sem 2 Mid Sem-Break Start', 'Sem 2 Resume', 'Sem 2 End', 'Summer School Start')
+)
+# Vis
+data.dates %>% knitr::kable(caption = 'OTAGO UNI KEY DATES')
+
+```
+
+
+![](../dunedin_analysis/waste_catchments_dunedin.png)
+
+**Currently there is insufficient flow data for any decent analysis to be conducted. Once we receive flow and concentration data for the 2022-2023 holiday period we might be able to do a proper analysis.**
+
+```{r dunedin flow and sars, include = F, cache = T}
+data.dunedin.flow = read_csv('../dunedin_analysis/dunedin_flow_data.csv')
+data.dunedin.waste = data.wastewater %>% filter(SampleLocation %in% c('OT_DunedinTahuna', 'OT_GreenIsland', 'OT_Mosgiel'))
+data.dunedin.flowwaste = data.dunedin.flow %>% 
+  pivot_longer(cols = c(-1, -18), names_to = 'date', values_to = 'daily_flow_m3') %>% 
+  mutate(date = mdy(date) + Day - 1) %>% 
+  arrange(date) %>% 
+  full_join(data.dunedin.waste %>% rename('date' = Collected, 'catchment' = SampleLocation), by = c('date', 'catchment'))
+
+# Determine which dates we expect to have students.
+# Define a function which can determine this easily. 
+study_in_session <- function(d){
+  if (length(d) > 1) return (sapply(d, study_in_session))
+  # Takes a date and returns True if we expect students to be in session at that time. 
+  # Just going to assume for now that the population of Summer School students is negligible. 
+  intervals = matrix(ncol = 2, byrow = T,
+                     c('01-03-21', '23-06-21',
+                       '12-07-21', '13-11-21',
+                       '21-02-22', '22-06-22', 
+                       '04-07-22', '12-11-22'))
+  any(apply(intervals, 1, function(i) dmy(i[1]) <= d & dmy(i[2]) >= d))
+}
+
+data.dunedin.flowwaste.study = data.dunedin.flowwaste %>% 
+  mutate(students_in_session = study_in_session(date))
+```
+
+```{r dunedin tahuna vis, echo = F, warning = F}
+data.dunedin.flowwaste.study %>% 
+  filter(catchment == 'OT_DunedinTahuna') %>% 
+  ggplot(aes(x = date, y = sars_gcl)) +
+  geom_point(aes(col = students_in_session)) +
+  theme_bw() +
+  labs(title = 'Observed SARS-CoV2 Concentration per L', subtitle = 'OT_DunedinTahuna',
+       x = 'Date', y = 'COVID-19 Genome Copies per Litre WW') +
+  scale_x_date(date_labels = "%b-%y", breaks = date_breaks()) +
+  theme(axis.text.x = element_text(angle = 30, vjust = 0.6),
+        legend.title = element_blank(),
+        legend.position = 'top') +
+  scale_color_manual(values = hue_pal()(2), labels = rev(c('School Term', 'Out of Term')))
+
+data.dunedin.flowwaste.study %>% 
+  filter(catchment == 'OT_DunedinTahuna') %>% 
+  ggplot(aes(x = date, y = daily_flow_m3)) +
+  geom_point(aes(col = students_in_session)) +
+  theme_bw() +
+  labs(title = 'Daily Flow', subtitle = 'OT_DunedinTahuna',
+       x = 'Date', y = 'Daily Flow (m3)') +
+  scale_x_date(date_labels = "%b-%y", breaks = date_breaks()) +
+  theme(axis.text.x = element_text(angle = 30, vjust = 0.6),
+        legend.title = element_blank(),
+        legend.position = 'top') +
+  scale_color_manual(values = hue_pal()(2), labels = rev(c('School Term', 'Out of Term'))) +
+  scale_y_continuous(breaks = 0:3 * 1e5, labels = format(0:3 * 1e5, scientific = F))
+
+```
+
+
+
+
+
+
+
+

@@ -1,0 +1,425 @@
+---
+title: "Wastewater - Flow Effect"
+author: "Toby Hayward"
+date: "2022-11-13"
+output:
+  html_document:
+    df_print: paged
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lubridate)
+library(mgcv)
+library(scales)
+library(splines)
+library(clifro)
+library(GGally)
+
+```
+
+
+```{r update data, include = FALSE, cache = TRUE}
+# Rain
+update_rain_files = function(){
+  # Got to be careful, so we don't query too many rows each time.
+  data.rain.sites = read_csv('../weather_data/rain_station_data_final.csv')
+  data.rain.sites = data.rain.sites %>% 
+    filter(!(is.na(`Waste Catchment`) & is.na(`Waste Catchment 2`) & is.na(`Waste Catchment 3`)))
+  
+  me = cf_user("tobyhayward13", "8G81FL6R")
+  rain_query.type = cf_datatype(3, 1, 1)
+  
+  data.weather.local = read_csv('../weather_data/weather_data.csv')
+  
+  
+  # Can only query 20 sites at once? Do 14 three times.
+  
+  data.weather.queried1 = tryCatch(cf_query(user = me, datatype = rain_query.type,
+                          station = cf_station(data.rain.sites$SiteNum[1:14]),
+                          start_date = max(data.weather.local$Date)+1,
+                          output_tz = 'NZST'), # max(data.weather.local$Date)+1
+                          error = function(e) NA)
+  
+  data.weather.queried2 = tryCatch(cf_query(user = me, datatype = rain_query.type,
+                          station = cf_station(data.rain.sites$SiteNum[15:28]),
+                          start_date = max(data.weather.local$Date)+1,
+                          output_tz = 'NZST'), # min(data.waste$Collected)
+                          error = function(e) NA)
+  
+  data.weather.queried3 = tryCatch(cf_query(user = me, datatype = rain_query.type,
+                          station = cf_station(data.rain.sites$SiteNum[29:41]),
+                          start_date = max(data.weather.local$Date)+1,
+                          output_tz = 'NZST'),
+                          error = function(e) NA)
+  
+  
+  data.weather = rbind(data.weather.queried1 %>% as.data.frame(), 
+                       data.weather.queried2 %>% as.data.frame(), 
+                       data.weather.queried3 %>% as.data.frame())
+  
+  # To not use too many rows when querying, I will save a copy of the rain data locally and for the final dataset, row bind with the local copy.
+  
+  
+  
+  if (any(!is.na(data.weather[,1]))) {
+    data.weather = data.weather.local %>% 
+      rbind(data.weather[!is.na(data.weather[,1]),] %>% 
+              as.data.frame() %>% 
+              mutate(Date.NZST. = str_sub(Date.NZST., 1, 8) %>% 
+                       ymd()) %>% rename('Date' = Date.NZST.))
+  } else {
+    data.weather = data.weather.local
+  }
+  
+  # Write out current data to local file
+  data.weather %>% 
+    write_csv('../weather_data/weather_data.csv')
+}
+
+update_rain_files()
+
+```
+
+
+```{r data, message = F}
+# Data in
+
+# Waste Data
+data.waste = read_csv('../data/ww_data_all.csv')
+
+
+# Case Data
+data.cases = read_csv('../data/cases_site.csv')
+
+
+# Site Data
+# https://stackoverflow.com/questions/1253499/simple-calculations-for-working-with-lat-lon-and-km-distance#:~:text=The%20approximate%20conversions%20are%3A,111.320*cos(latitude)%20km
+minutes_to_km = 110.574
+consider_dist = 80
+
+location_coords = tibble(
+  SampleLocation = c('Auckland', 'Wellington', 'Christchurch'),
+  Latitude = -c(36.8508, 41.2842, 43.5299),
+  Longitude = c(174.7645, 174.7775, 172.6333)
+)
+data.sites = read_csv('../data/sites.csv') %>% 
+  mutate(dist_akld = sqrt((Latitude - location_coords[[1,2]])^2 + (Longitude - location_coords[[1,3]])^2) * minutes_to_km,
+         dist_wgtn = sqrt((Latitude - location_coords[[2,2]])^2 + (Longitude - location_coords[[2,3]])^2) * minutes_to_km,
+         dist_chch = sqrt((Latitude - location_coords[[3,2]])^2 + (Longitude - location_coords[[3,3]])^2) * minutes_to_km,
+         consider = dist_akld < consider_dist | dist_wgtn < consider_dist | dist_chch < consider_dist) 
+
+
+# Rain Data
+data.weather = read_csv('../weather_data/weather_data.csv')
+data.rain.sites = read_csv('../weather_data/rain_station_data_final.csv')
+
+
+# Flow Data
+
+data.flow = read_csv('../weather_data/flow_data.csv')
+# Last 2 columns aren't interesting
+data.flow = data.flow[,-c(4:5)]
+data.flow
+
+data.flow = read_csv('../weather_data/2 - DAILY FLOWS SEPT 2022.csv')
+
+data.flow2 = data.flow %>% 
+  mutate(DATECOLLECTED = dmy(DATECOLLECTED))
+
+# Someone has put the bloody date in mdy format
+data.flow[which(is.na(data.flow2$DATECOLLECTED)),]
+
+
+data.flow2 = data.flow %>% 
+  mutate(DATECOLLECTED1 = dmy(DATECOLLECTED),
+         DATECOLLECTED2 = mdy(DATECOLLECTED))
+
+data.flow3 = data.flow2 %>% 
+  mutate(DATECOLLECTED = case_when(is.na(DATECOLLECTED1) ~ DATECOLLECTED2, 
+                                   TRUE ~ DATECOLLECTED1))
+
+
+data.flow3[which(is.na(data.flow2$DATECOLLECTED)),]
+
+# Love to see it.
+
+data.flow = data.flow3 %>% select(DATECOLLECTED, SAMPLELOCATION = SAMPLELOCATIONSMASTER, daily_flow_rate_m3)
+# write_csv(data.flow, '../weather_data/flow_data_clean.csv')
+```
+
+Setup the data.
+
+```{r rain waste setup, message=FALSE, warning = FALSE}
+# Setup Rain data to explain Flow
+data.weather.whole = data.weather %>% 
+  left_join(data.rain.sites %>% 
+               rename('Station' = Site),  by = 'Station') %>% 
+  pivot_longer(cols = 13:15, names_to = 'Del', values_to = 'catchment') %>% 
+  select(-Del) %>% 
+  filter(!is.na(catchment)) %>% 
+  group_by(catchment) %>% 
+  group_split()
+  
+(names(data.weather.whole) = data.weather.whole %>% map(~.$catchment %>% unique() %>% str_replace(' ', ''))) %>% unlist()
+
+weather_model_prep = function(data){
+  data %>% group_by(Date) %>% 
+    summarise(avg_rain = mean(Amount.mm.)) %>% 
+    mutate(avg_rain.lag1 = lag(avg_rain, 1),
+           avg_rain.lag2 = lag(avg_rain, 2),
+           avg_rain.lag3 = lag(avg_rain, 3),
+           avg_rain.lag4 = lag(avg_rain, 4),
+           avg_rain.lag5 = lag(avg_rain, 5),
+           avg_rain.lag6 = lag(avg_rain, 6),
+           avg_rain.lag7 = lag(avg_rain, 7))
+}
+
+# Locations mapped.
+data.weather.whole.model = data.weather.whole %>% map(weather_model_prep)
+
+data.waste.whole = data.waste %>% 
+  filter(SampleLocation %in% names(data.weather.whole)) %>% 
+  arrange(SampleLocation) %>% 
+  rename('Date' = Collected) %>% 
+  group_by(SampleLocation) %>% 
+  group_split()
+
+# Check names match
+names(data.waste.whole) = data.waste.whole %>% map(~.$SampleLocation %>% unique()) %>% unlist()
+
+# Get population estimates
+
+# Old population estimates (ESR)
+pop_names = map_chr(data.waste.whole, ~.$SampleLocation[1] %>% str_sub(4, -1))
+data.population_old = data.sites %>% mutate(catchment = SampleLocation %>% str_sub(4,-1)) %>% filter(catchment %in% pop_names) %>%
+  select(catchment, Population) %>%
+  arrange(catchment)
+
+# New Estimates (Mackay)
+data.population = read_csv('../data/SitePopulationData.csv')
+# These Sites have macron a's and o's that read_csv hasn't recognised. We'll replace these manually. 
+data.population[data.population$Site %>% str_detect('\\?'),]$Site = c('Opotiki', 'Taupo', 'Whakatane', 'Whangarei')
+
+data.population = data.population %>% 
+  rename('catchment' = Site, 'Population' = `Population Size`) %>% 
+  mutate(catchment = catchment %>% str_replace_all(' ', '')) %>% 
+  # The Eastern and South Western Interceptors are locations of interest but have 'Mangere' and 'Interceptor' attached. Remove this too
+  mutate(catchment = ifelse(catchment %>% str_detect('stern') & Region == 'Auckland', str_extract(catchment, '.*stern') %>% str_sub(8,-1), catchment))
+
+data.population = data.population %>% 
+  arrange(catchment)
+
+
+# datapops joined because Mackay doesnt have all locations of interest. Prefer Mackay's, but will use ESR's if necessary
+data.population_joined = data.population %>% 
+  rbind(data.population_old %>% 
+          cbind(data.frame(Region = rep(NA, nrow(data.population_old)), Island = rep(NA, nrow(data.population_old))))) %>% 
+  select(-(2:3)) %>% 
+  # ID's have different capitalization
+  mutate(catchment_lower = tolower(catchment)) %>% 
+  distinct(catchment_lower, .keep_all = TRUE) %>% 
+  arrange(catchment) %>% 
+  filter(catchment_lower %in% tolower(pop_names)) %>% 
+  select(-3)
+
+
+# Southwestern is causing issues. Just fix the damn name
+data.population_joined[data.population_joined$catchment == 'Southwestern',]$catchment = 'SouthWestern'
+
+# Create the final modelling dataset
+model.data = data.waste.whole %>% 
+  map2(data.weather.whole.model, inner_join, by = c('Date')) %>% 
+  map2(data.population_joined$Population, cbind) %>% 
+  map(rename, 'population' = `.y[[i]]`) %>% 
+  map(mutate, sars_per_person = sars_gcl / population)
+names(model.data) = names(pop_names)
+
+model.data$CA_Christchurch
+
+
+```
+
+
+Join with flow.
+
+```{r rain and flow joined}
+data.flow.split = data.flow %>%
+  rename('Date' = DATECOLLECTED) %>% 
+  group_by(SAMPLELOCATION) %>% 
+  group_split()
+
+# Flow locations
+
+model.data.flow = model.data[map_chr(data.flow.split, ~.$SAMPLELOCATION[[1]])]
+
+# Join the flow estimates into the rain and waste data.
+
+model.data.flow = map2(model.data.flow, data.flow.split, left_join, by = 'Date')
+
+```
+
+
+
+
+First I am interested in seeing how much rain explains the daily flow.
+
+
+```{r rain on flow 1, fig.width=15, fig.height=6}
+model.data.flow_joined = model.data.flow %>% 
+  do.call(rbind, .) %>% 
+  as_tibble()
+
+
+# Flow over time
+model.data.flow_joined %>% 
+  ggplot(aes(x = Date, y = daily_flow_rate_m3)) +
+  geom_point() +
+  facet_wrap(~SampleLocation, scales = 'free_y')
+
+```
+
+Flow seems to vary over time for all locations. No data for AU_Western.
+
+```{r rain on flow 2, fig.width=15, fig.height=6}
+# Rain in line with Flow
+
+normalise <- function(v){
+  (v - min(v, na.rm = T)) / (max(v, na.rm = T) - min(v, na.rm = T))
+}
+
+# Normalise the columns
+model.data.flow_joined %>% 
+  mutate(cumulative_rain_7days = avg_rain + avg_rain.lag1 + avg_rain.lag2 + avg_rain.lag3 + avg_rain.lag4 + avg_rain.lag5 + avg_rain.lag6,
+         cumulative_rain_7days.normal = normalise(cumulative_rain_7days),
+         daily_flow_rate_m3.normal = normalise(daily_flow_rate_m3)) %>% 
+  ggplot(aes(x = Date, y = cumulative_rain_7days.normal)) +
+  geom_line(alpha = 0.3, col = 'blue') +
+  geom_point(aes(y = daily_flow_rate_m3.normal)) +
+  facet_wrap(~SampleLocation, scales = 'free_y')
+
+
+```
+
+Rain over the past week seems to be reasonably correlated with flow in those places which have varied flow as previously identified.
+
+
+```{r rain on flow 3, fig.width=15, fig.height=6}
+model.data.flow_joined %>% 
+  mutate(cumulative_rain_7days = avg_rain + avg_rain.lag1 + avg_rain.lag2 + avg_rain.lag3 + avg_rain.lag4 + avg_rain.lag5 + avg_rain.lag6) %>% 
+  ggplot(aes(x = cumulative_rain_7days, y = daily_flow_rate_m3)) +
+  geom_point(alpha = 0.3) +
+  facet_wrap(~SampleLocation, scales = 'free_y') +
+  labs(x = 'Total Rain over the past week (ml)')
+
+```
+
+In all locations, there seems to be a somewhat strong positive relationship between the amount of rain over the past 7 days and the amount of flow.
+
+
+## Modelling
+
+```{r modelling rain on flow test, include = F}
+rain_flow.fit = lm(data = model.data.flow_joined,
+                   daily_flow_rate_m3 ~ avg_rain + avg_rain.lag1 + avg_rain.lag2 + avg_rain.lag3 + avg_rain.lag4 + avg_rain.lag5 + avg_rain.lag6 + SampleLocation)
+
+
+summary(rain_flow.fit)
+plot(rain_flow.fit)
+
+rain_flow.fit2 = glm(data = model.data.flow_joined,
+                     daily_flow_rate_m3 ~ avg_rain + avg_rain.lag1 + avg_rain.lag2 + avg_rain.lag3 + avg_rain.lag4 + avg_rain.lag5 + avg_rain.lag6 + avg_rain.lag7 + SampleLocation,
+                     family = 'quasipoisson')
+
+summary(rain_flow.fit2)
+plot(rain_flow.fit2)
+
+```
+
+
+```{r effects of rain on flow, message = F}
+
+coef(rain_flow.fit2)[names(coef(rain_flow.fit2)) %>% str_detect('rain')] %>% 
+  cbind(rain = names(.), effect_percent = (exp(.) - 1)*100) %>% 
+  as_tibble() %>% 
+  select(-1) %>% 
+  mutate(effect_percent = as.numeric(effect_percent),
+         cumulative_percent = cumsum(effect_percent),
+         day = 0:7) %>% 
+  ggplot(aes(x = day, y = effect_percent)) +
+  geom_point(size = 3) +
+  geom_smooth(se = F, aes(col = 'Individual Effect')) +
+  geom_smooth(aes(y = cumulative_percent, col = 'Cumulative Effect'), se = F) +
+  geom_point(aes(y = cumulative_percent), col = alpha('red', 0.7), pch = 5) +
+  theme_bw() +
+  labs(title = "Effect and Cumulative effect of a week's rain on Wastewater flow.",
+       x = "Day's prior", y = '% Increase in flow', colour = '') +
+  scale_x_continuous(breaks = 0:7) +
+  scale_y_continuous(breaks = seq(0, 5, 0.2)) +
+  theme(legend.position = 'top') +
+  scale_color_discrete()
+
+```
+
+
+
+### Benefit to using Flow over Rain.
+
+```{r gam summary codeblock}
+source('../produce_modelling_summaries.R')
+```
+
+
+```{r rain model, message = F, fig.show='hold', out.width='50%'}
+models = map(model.data.flow, produce_rainsummary.gam)
+
+map(models, print_rainsummary.gam)
+
+```
+
+In almost every location, rain proved to explain some of the variance in the observed concentration of COVID-19 bodies. \
+In `AU_Western`, this effect is not totally significant and in `AU_Eastern` rain appears to have also no effect let alone MLE positive effect on the concentration. These are the locations that I expect to see more variance explained when we factor in flow.
+
+
+
+
+
+
+
+
+### With flow in the model.
+
+
+```{r rain flow model, warning = F, fig.show='hold', out.width='50%'}
+# Can't map some locations
+map_dbl(model.data.flow, ~filter(., !is.na(daily_flow_rate_m3)) %>% nrow())
+
+models = map(model.data.flow[-4], produce_flowrainsummary.gam)
+
+map(models, print_flowrainsummary.gam)
+
+```
+
+Unless my modelling techniques are incorrect, this is saying that in almost every case it is ideal to have good flow estimates.\
+So, is flow useful in all locations?
+
+```{r just flow model, warning=F, cache = T}
+map(models, print_flowsummary.gam)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
