@@ -151,7 +151,7 @@ dbl (17): Day, 7/1/2021, 8/1/2021, 9/1/2021, 10/1/2021, 11/1/2021, 12/1/2021...
 <span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>data.waste <span class="ot">=</span> <span class="fu">read_csv</span>(<span class="st">'../data/ww_data_all.csv'</span>) <span class="sc">%&gt;%</span> </span>
 <span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(SampleLocation <span class="sc">%in%</span> (data.flow.tidy<span class="sc">$</span>SampleLocation <span class="sc">%&gt;%</span> <span class="fu">unique</span>()))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
-<pre><code>Rows: 7697 Columns: 5
+<pre><code>Rows: 7513 Columns: 5
 ── Column specification ────────────────────────────────────────────────────────
 Delimiter: ","
 chr  (2): SampleLocation, Result
@@ -301,22 +301,22 @@ sars_gcl ~ s(date.n, k = 11) + students_in_session
 
 Parametric coefficients:
                         Estimate Std. Error t value Pr(&gt;|t|)    
-(Intercept)               8.1420     0.6740  12.080   &lt;2e-16 ***
-students_in_sessionTRUE   0.6248     0.5346   1.169    0.246    
+(Intercept)               8.7435     0.5110  17.109   &lt;2e-16 ***
+students_in_sessionTRUE   0.5992     0.5373   1.115    0.269    
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
 Approximate significance of smooth terms:
-            edf Ref.df     F p-value    
-s(date.n) 9.015  9.401 3.691 0.00033 ***
+            edf Ref.df     F  p-value    
+s(date.n) 9.577  9.932 4.693 6.38e-05 ***
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
-R-sq.(adj) =   0.36   Deviance explained = 59.4%
-GCV = 9001.1  Scale est. = 9341.9    n = 87</code></pre>
+R-sq.(adj) =  0.318   Deviance explained = 54.4%
+GCV = 9823.9  Scale est. = 9518.6    n = 82</code></pre>
 </div>
 </div>
-<p>This is saying that it is likely there is no significant effect of students on the observed number of genome copies. This I believe makes sense since the number of genome copies is copies per litre, and hence it’s effectively normalised by the amount of water usage which is likely correlated with more students. However, interpretting the coefficient as significant, students being in the area correspond with an increase in observed genome copies per litre of about 86.8%.<br>
+<p>This is saying that it is likely there is no significant effect of students on the observed number of genome copies. This I believe makes sense since the number of genome copies is copies per litre, and hence it’s effectively normalised by the amount of water usage which is likely correlated with more students. However, interpretting the coefficient as significant, students being in the area correspond with an increase in observed genome copies per litre of about 82.1%.<br>
 It is also interesting to note that the largest spikes in cases seem to be around the beginning of new terms. This is unsurprising if we’re considering the amount of large social events happening around this time.<br>
 <br>
 The next consideration is determine significance in copies-per-litre-<em>per-person-population</em>.</p>
@@ -340,19 +340,19 @@ copies_per_day_per_person ~ s(date.n, k = 11) + students_in_session
 
 Parametric coefficients:
                         Estimate Std. Error t value Pr(&gt;|t|)    
-(Intercept)              13.5893     0.6740  20.163   &lt;2e-16 ***
-students_in_sessionTRUE   0.6248     0.5346   1.169    0.246    
+(Intercept)              14.1908     0.5110  27.769   &lt;2e-16 ***
+students_in_sessionTRUE   0.5992     0.5373   1.115    0.269    
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
 Approximate significance of smooth terms:
-            edf Ref.df     F p-value    
-s(date.n) 9.015  9.401 3.691 0.00033 ***
+            edf Ref.df     F  p-value    
+s(date.n) 9.577  9.932 4.693 6.38e-05 ***
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
-R-sq.(adj) =   0.36   Deviance explained = 59.4%
-GCV = 2.0895e+06  Scale est. = 2.1687e+06  n = 87</code></pre>
+R-sq.(adj) =  0.318   Deviance explained = 54.4%
+GCV = 2.2805e+06  Scale est. = 2.2097e+06  n = 82</code></pre>
 </div>
 </div>
 <p>What should’ve been obvious is that the <em>copies-per-litre-per-person</em> is simply a scale factor of the <code>sars_gcl</code> value. Hence the significance and effect is the same.<br>
@@ -394,19 +394,19 @@ daily_flow_m3 ~ s(date, k = 5) + students_in_session
 
 Parametric coefficients:
                         Estimate Std. Error t value Pr(&gt;|t|)    
-(Intercept)             10.35453    0.19386  53.411   &lt;2e-16 ***
-students_in_sessionTRUE  0.02923    0.22600   0.129    0.897    
+(Intercept)              10.2944     0.2238   46.01   &lt;2e-16 ***
+students_in_sessionTRUE   0.1111     0.2471    0.45    0.654    
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
 Approximate significance of smooth terms:
-         edf Ref.df     F p-value  
-s(date) 2.83  3.363 2.108  0.0992 .
+          edf Ref.df     F p-value  
+s(date) 3.174  3.631 2.474  0.0887 .
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
-R-sq.(adj) =  0.054   Deviance explained = 15.7%
-GCV = 5175.9  Scale est. = 7637.4    n = 86</code></pre>
+R-sq.(adj) =  0.0535   Deviance explained = 16.2%
+GCV = 5433.7  Scale est. = 7748.1    n = 81</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>fit.tahuna.flow2 <span class="ot">=</span> <span class="fu">gam</span>(<span class="at">data =</span> data.model<span class="sc">$</span>OT_DunedinTahuna <span class="sc">%&gt;%</span> <span class="fu">filter</span>(daily_flow_m3 <span class="sc">&lt;</span> <span class="fl">12e4</span>) <span class="sc">%&gt;%</span> <span class="fu">mutate</span>(<span class="at">date =</span> <span class="fu">as.numeric</span>(date)),</span>
 <span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>                      <span class="co"># 5 knots to account for seasonal variation.</span></span>
@@ -427,19 +427,19 @@ daily_flow_m3 ~ s(date, k = 5) + students_in_session
 
 Parametric coefficients:
                         Estimate Std. Error t value Pr(&gt;|t|)    
-(Intercept)             10.32712    0.05017 205.833   &lt;2e-16 ***
-students_in_sessionTRUE -0.02803    0.05833  -0.481    0.632    
+(Intercept)             10.34719    0.05454 189.729   &lt;2e-16 ***
+students_in_sessionTRUE -0.03693    0.05994  -0.616     0.54    
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
 Approximate significance of smooth terms:
-          edf Ref.df    F p-value  
-s(date) 2.192  2.689 3.13  0.0253 *
+         edf Ref.df     F p-value  
+s(date) 2.09  2.544 2.103  0.0832 .
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
-R-sq.(adj) =  0.126   Deviance explained = 17.3%
-GCV = 550.46  Scale est. = 562.96    n = 84</code></pre>
+R-sq.(adj) =  0.0652   Deviance explained = 10.9%
+GCV = 573.89  Scale est. = 585.48    n = 79</code></pre>
 </div>
 </div>
 <p>So after removing the outlying observations, there appears to be little to no effect of students being in the school term and the amount of flow entering the waste water catchment.<br>

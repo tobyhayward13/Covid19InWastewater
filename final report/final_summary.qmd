@@ -412,10 +412,88 @@ data.dunedin.flowwaste.study %>%
 
 ```
 
+To estimate the effect that students being in school has on the observed concentration of genome copies, we will fit a similar model as above; accounting for all the seasonal variation of the virus outbreak with a smoother and letting the rest of the information be explained by the simple categorical `students_in_session`. 
+
+```{r fit tahuna conc, warning=F, echo = F}
+data.dunedin.flowwaste.study %>% 
+  filter(catchment == 'OT_DunedinTahuna') %>% 
+  filter(!is.na(sars_gcl)) %>% 
+  ggplot(aes(x = date, y = sars_gcl)) +
+  geom_point(aes(col = students_in_session)) +
+  theme_bw() +
+  labs(title = 'Observed SARS-CoV2 Concentration per L', subtitle = 'OT_DunedinTahuna',
+       x = 'Date', y = 'COVID-19 Genome Copies per Litre WW') +
+  scale_x_date(date_labels = "%b-%y", breaks = date_breaks()) +
+  theme(axis.text.x = element_text(angle = 30, vjust = 0.6),
+        legend.title = element_blank(),
+        legend.position = 'top') +
+  scale_color_manual(values = hue_pal()(2), labels = rev(c('School Term', 'Out of Term')))
+
+fit.tahuna.conc = gam(data = data.dunedin.flowwaste.study %>% filter(catchment == 'OT_DunedinTahuna') %>% mutate(date.n = as.numeric(date)),
+                 # A knot for every month. 
+                 sars_gcl ~ s(date.n, k = 11) + students_in_session,
+                 family = 'quasipoisson')
+plot.gam_mine(fit.tahuna.conc)[[2]] + labs(title = 'Smooth Mean to explain Monthly variation')
+
+summary(fit.tahuna.conc)
+
+```
+
+From this output, the model estimates with little to no significance (p = `r summary(fit.tahuna.conc)$p.pv[[2]] %>% round(3)`) that there is an effect of students on the level of concentration of SARS-CoV2 gcs. The smoother applied is however likely explaining a lot of the effect from students; since it accounts for *monthly variation which may or may not be a result of lots of sick students in the area*, and hence it is unwise to trust this estimate yet. Applying a lower-degree smoother would allow more information to be explained, but it will fail to do it's purpose of modelling the outbreak thus far and may be unfair toward the student effect. \
+\
+Before summarising, we can observe the effect that students have on Flow. Here however, since we expect flow to naturally fluctuate on a *seasonal* basis, we will instead just fit a smoother accounting for the number of seasons that the data covers. 
+
+```{r fit tahuna flow, echo = F}
+data.dunedin.flowwaste.study %>% 
+  filter(catchment == 'OT_DunedinTahuna') %>% 
+  filter(!is.na(daily_flow_m3)) %>% 
+  ggplot(aes(x = date, y = daily_flow_m3)) +
+  geom_point(aes(col = students_in_session)) +
+  theme_bw() +
+  labs(title = 'Daily Flow', subtitle = 'OT_DunedinTahuna',
+       x = 'Date', y = 'Daily Flow (m3)') +
+  scale_x_date(date_labels = "%b-%y", breaks = date_breaks()) +
+  theme(axis.text.x = element_text(angle = 30, vjust = 0.6),
+        legend.title = element_blank(),
+        legend.position = 'top') +
+  scale_color_manual(values = hue_pal()(2), labels = rev(c('School Term', 'Out of Term'))) +
+  scale_y_continuous(breaks = 0:3 * 1e5, labels = format(0:3 * 1e5, scientific = F))
+
+fit.tahuna.flow = gam(data = data.dunedin.flowwaste.study %>% filter(catchment == 'OT_DunedinTahuna') %>% mutate(date.n = as.numeric(date)),
+                 # A knot for every month. 
+                 daily_flow_m3 ~ s(date.n, k = 6) + students_in_session,
+                 family = 'quasipoisson')
+plot.gam_mine(fit.tahuna.flow)[[2]] + labs(title = 'Smooth Mean to explain Seasonal variation')
+
+summary(fit.tahuna.flow)
+
+```
+
+Between July 2021 and November 2022; the data stretches across *6* seasons and hence an appropriate number of knots was applied. \
+The results show no significance (p = `r summary(fit.tahuna.flow)$p.pv[[2]] %>% round(3)`) in the idea that there is an effect of students on the amount of Daily Flow. \
+This is interesting since we would usually expect the influx of students in the area should impact the amount of wastewater entering the plants in a positive way. \
+\
+
+### Results
+
+As much as the investigation into population effects is concerned, to continue we would require a couple data sets:
+
+1. Flow data for the 2022-2023 holiday period (see the graphs above; currently there is insufficient data to support an analysis on scaled flow from population).
+2. Population data for the area. 
 
 
+\newpage
 
+# Summary
 
+This report contains the results of Toby and Thomas's investigation into confounding effects on the Concentration of SARS-CoV2 Genome Copies in Wastewater. In the process we investigated **three** different potential effects:
 
+1. Rain
+2. Flow
+3. Population Variance
+
+We found that **Rain** in most areas has a negative relationship with the observed number of SARS-CoV2 Gcs. \
+Whilst we have faith in the fact that controlling the effect of Rain in models using the Concentration of Gcs to estimate COVID-19 prevalence, we think it is more wise where possible to instead use **Daily Flow** measurements instead of a *yearly average*; since this factor will contain the information presented by rainfall. \
+Using *Dunedin* as a case study, we found that there is potential for the population to have an effect on both Concentration and Flow, however there is insufficient data at this point to complete the analysis. 
 
 
