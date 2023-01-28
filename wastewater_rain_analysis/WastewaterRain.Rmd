@@ -187,7 +187,7 @@ data.population_old = data.sites %>% mutate(catchment = SampleLocation %>% str_s
   arrange(catchment)
 
 # New Estimates (Mackay)
-data.population = read_csv('../data/SitePopulationData.csv')
+data.population = read_csv('../SitePopulationData.csv')
 # These Sites have macron a's and o's that read_csv hasn't recognised. We'll replace these manually. 
 data.population[data.population$Site %>% str_detect('\\?'),]$Site = c('Opotiki', 'Taupo', 'Whakatane', 'Whangarei')
 
